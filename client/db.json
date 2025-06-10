@@ -1,0 +1,61 @@
+{
+    "users": [
+      {
+        "id": 1,
+        "phone": "+919876543210",
+        "firstName": "John",
+        "middleName": "Robert",
+        "lastName": "Doe",
+        "dateOfBirth": "1990-05-15",
+        "gender": "male",
+        "faceId": "face_123",
+        "isRegistered": true
+      }
+    ],
+    "otpVerifications": [
+      {
+        "id": 1,
+        "phone": "+919876543210",
+        "otp": "123456",
+        "verified": false,
+        "timestamp": "2024-01-01T10:00:00Z"
+      }
+    ],
+    "appointments": [
+      {
+        "id": 1,
+        "userId": 1,
+        "date": "2024-01-15",
+        "time": "10:00",
+        "doctor": "Dr. Smith",
+        "type": "General Checkup"
+      }
+    ],
+    "healthRecords": [
+      {
+        "id": 1,
+        "userId": 1,
+        "type": "Blood Pressure",
+        "value": "120/80",
+        "date": "2024-01-10"
+      }
+    ],
+    "medicines": [
+      {
+        "id": 1,
+        "userId": 1,
+        "name": "Paracetamol",
+        "dosage": "500mg",
+        "frequency": "Twice daily"
+      }
+    ],
+    "emergencyContacts": [
+      {
+        "id": 1,
+        "userId": 1,
+        "name": "Jane Doe",
+        "relation": "Spouse",
+        "phone": "+919876543211"
+      }
+    ]
+  }
