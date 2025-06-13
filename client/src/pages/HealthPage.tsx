@@ -1,58 +1,57 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
-  Box,
-  Typography,
-  Container,
   Card,
   CardContent,
-  IconButton,
-  Fab,
-} from '@mui/material';
-import { ArrowBack, Add, Favorite } from '@mui/icons-material';
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
+import { HeartPulse, Droplets, Activity } from 'lucide-react';
 
 const HealthPage: React.FC = () => {
-  const navigate = useNavigate();
-
   return (
-    <Container maxWidth="sm" sx={{ minHeight: '100vh', py: 2 }}>
-      {/* Header */}
-      <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-        <IconButton onClick={() => navigate('/home')} sx={{ mr: 1 }}>
-          <ArrowBack />
-        </IconButton>
-        <Typography variant="h6" sx={{ fontWeight: 600 }}>
-          My Health
-        </Typography>
-      </Box>
+    <div className="h-full min-h-[calc(100dvh-110px)] ">
+      <div>
+        <h2 className="text-xl font-bold mb-5">Health Dashboard</h2>
+      </div>
 
-      {/* Coming Soon Card */}
-      <Card sx={{ textAlign: 'center', py: 8 }}>
-        <CardContent>
-          <Favorite sx={{ fontSize: 80, color: '#4caf50', mb: 3 }} />
-          <Typography variant="h5" gutterBottom sx={{ fontWeight: 600 }}>
-            My Health
-          </Typography>
-          <Typography variant="body1" color="textSecondary" sx={{ mb: 4 }}>
-            This feature is coming soon. You'll be able to track your health metrics and records here.
-          </Typography>
-        </CardContent>
-      </Card>
+      <div className="grid grid-cols-1 gap-4">
+        <Card>
+          <CardHeader className="flex flex-col items-center text-center">
+            <HeartPulse className="h-6 w-6 text-red-500 mb-2" />
+            <CardTitle>Heart Rate</CardTitle>
+            <CardDescription>78 bpm</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Progress value={78} />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-col items-center text-center">
+            <Droplets className="h-6 w-6 text-blue-500 mb-2" />
+            <CardTitle>Oxygen Level</CardTitle>
+            <CardDescription>97%</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Progress value={97} />
+          </CardContent>
+        </Card>
 
-      {/* Floating Action Button */}
-      <Fab
-        color="primary"
-        aria-label="add"
-        sx={{
-          position: 'fixed',
-          bottom: 16,
-          right: 16,
-        }}
-      >
-        <Add />
-      </Fab>
-    </Container>
+        <Card>
+          <CardHeader className="flex flex-col items-center text-center">
+            <Activity className="h-6 w-6 text-green-600 mb-2" />
+            <CardTitle>Blood Pressure</CardTitle>
+            <CardDescription>120/80</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Progress value={60} />
+          </CardContent>
+        </Card>
+      </div>
+    </div>
   );
 };
 
 export default HealthPage;
+

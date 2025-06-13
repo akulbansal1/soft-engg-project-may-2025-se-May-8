@@ -1,57 +1,162 @@
-import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Pencil, Trash2, PlusCircle } from "lucide-react";
 import {
-  Box,
-  Typography,
-  Container,
-  Card,
-  CardContent,
-  IconButton,
-  Fab,
-} from '@mui/material';
-import { ArrowBack, Add, Emergency } from '@mui/icons-material';
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+
+interface Contact {
+  name: string;
+  relation: string;
+  phone: string;
+}
 
 const EmergencyContactsPage: React.FC = () => {
-  const navigate = useNavigate();
+  const [contacts, setContacts] = useState<Contact[]>([
+    { name: "John Doe", relation: "Brother", phone: "+91-9876543210" },
+    { name: "Jane Smith", relation: "Neighbor", phone: "+91-9123456780" },
+  ]);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editIndex, setEditIndex] = useState<number | null>(null);
+  const [form, setForm] = useState<Contact>({
+    name: "",
+    relation: "",
+    phone: "",
+  });
+
+  const handleOpen = (idx: number | null = null) => {
+    if (idx !== null) setForm(contacts[idx]);
+    else setForm({ name: "", relation: "", phone: "" });
+    setEditIndex(idx);
+    setModalOpen(true);
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSave = () => {
+    if (editIndex !== null) {
+      const updated = [...contacts];
+      updated[editIndex] = form;
+      setContacts(updated);
+    } else {
+      setContacts([...contacts, form]);
+    }
+    setModalOpen(false);
+  };
+
+  const handleDelete = (idx: number) => {
+    const updated = contacts.filter((_, i) => i !== idx);
+    setContacts(updated);
+  };
 
   return (
-    <Container maxWidth="sm" sx={{ minHeight: '100vh', py: 2 }}>
-      {/* Header */}
-      <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-        <IconButton onClick={() => navigate('/home')} sx={{ mr: 1 }}>
-          <ArrowBack />
-        </IconButton>
-        <Typography variant="h6" sx={{ fontWeight: 600 }}>
-          Emergency Contacts
-        </Typography>
-      </Box>
+    <div className="h-full min-h-[calc(100dvh-110px)] flex flex-col space-y-6">
+      <div className="flex justify-between items-center">
+        <h2 className="text-xl font-semibold">Emergency Contacts</h2>
+        <Button
+          onClick={() => handleOpen()}
+          className="hover:cursor-pointer"
+          variant="outline"
+        >
+          <PlusCircle /> Add Contact
+        </Button>
+      </div>
 
-      {/* Coming Soon Card */}
-      <Card sx={{ textAlign: 'center', py: 8 }}>
-        <CardContent>
-          <Emergency sx={{ fontSize: 80, color: '#f44336', mb: 3 }} />
-          <Typography variant="h5" gutterBottom sx={{ fontWeight: 600 }}>
-            Emergency Contacts
-          </Typography>
-          <Typography variant="body1" color="textSecondary" sx={{ mb: 4 }}>
-            This feature is coming soon. You'll be able to manage your emergency contacts here.
-          </Typography>
-        </CardContent>
-      </Card>
+      <ScrollArea className="flex-grow">
+        <Card>
+          <CardHeader>
+            <CardTitle>Contacts List</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {contacts.map((contact, idx) => (
+              <div
+                key={idx}
+                className="flex justify-between items-center border-b pb-2"
+              >
+                <div>
+                  <p className="font-medium">
+                    {contact.name} ({contact.relation})
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {contact.phone}
+                  </p>
+                </div>
+                <div className="flex space-x-2">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="hover:cursor-pointer"
+                    onClick={() => handleOpen(idx)}
+                  >
+                    <Pencil size={16} />
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="icon"
+                    className="hover:cursor-pointer"
+                    onClick={() => handleDelete(idx)}
+                  >
+                    <Trash2 size={16} />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      </ScrollArea>
 
-      {/* Floating Action Button */}
-      <Fab
-        color="primary"
-        aria-label="add"
-        sx={{
-          position: 'fixed',
-          bottom: 16,
-          right: 16,
-        }}
-      >
-        <Add />
-      </Fab>
-    </Container>
+      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {editIndex !== null ? "Edit Contact" : "Add Contact"}
+            </DialogTitle>
+            <DialogDescription>
+              Fill in the emergency contact details.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <Input
+              name="name"
+              placeholder="Name"
+              value={form.name}
+              onChange={handleChange}
+            />
+            <Input
+              name="relation"
+              placeholder="Relation"
+              value={form.relation}
+              onChange={handleChange}
+            />
+            <Input
+              name="phone"
+              placeholder="Phone"
+              value={form.phone}
+              onChange={handleChange}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSave}>
+              {editIndex !== null ? "Save Changes" : "Add Contact"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 };
 

@@ -1,96 +1,73 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { ThemeProvider, createTheme, CssBaseline } from '@mui/material';
-import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import React, { useEffect, useState } from "react";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { CgDarkMode } from "react-icons/cg";
+import WelcomePage from "./pages/WelcomePage";
+import Authentication from "./pages/Authentication";
+import OTPPage from "./pages/OTPPage";
+import FaceIDPage from "./pages/FaceIDPage";
+import HomePage from "./pages/HomePage";
+import EmergencyContactsPage from "./pages/EmergencyContactsPage";
+import AppointmentsPage from "./pages/AppointmentsPage";
+import HealthPage from "./pages/HealthPage";
+import MedicinesPage from "./pages/MedicinesPage";
+import DataVault from "./pages/DataVault";
+import Settings from "./pages/Settings";
 
-// Pages
-import WelcomePage from './pages/WelcomePage';
-import LoginPage from './pages/LoginPage';
-import RegisterPage from './pages/RegisterPage';
-import OTPPage from './pages/OTPPage';
-import FaceIDPage from './pages/FaceIDPage';
-import HomePage from './pages/HomePage';
-import EmergencyContactsPage from './pages/EmergencyContactsPage';
-import AppointmentsPage from './pages/AppointmentsPage';
-import HealthPage from './pages/HealthPage';
-import MedicinesPage from './pages/MedicinesPage';
 
-// Create theme
-const theme = createTheme({
-  palette: {
-    primary: {
-      main: '#2196f3',
-      light: '#64b5f6',
-      dark: '#1976d2',
-    },
-    secondary: {
-      main: '#4caf50',
-      light: '#81c784',
-      dark: '#388e3c',
-    },
-    background: {
-      default: '#f5f5f5',
-      paper: '#ffffff',
-    },
-  },
-  typography: {
-    fontFamily: '"Roboto", "Helvetica", "Arial", sans-serif',
-    h4: {
-      fontWeight: 600,
-    },
-    h5: {
-      fontWeight: 500,
-    },
-  },
-  shape: {
-    borderRadius: 12,
-  },
-  components: {
-    MuiButton: {
-      styleOverrides: {
-        root: {
-          textTransform: 'none',
-          borderRadius: 12,
-          padding: '12px 24px',
-        },
-      },
-    },
-    MuiCard: {
-      styleOverrides: {
-        root: {
-          borderRadius: 16,
-          boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
-        },
-      },
-    },
-  },
-});
+const App: React.FC = () => {
+  const [dark, setDark] = useState<boolean>(() => {
+    const stored = localStorage.getItem("theme");
+    if (stored) return stored === "dark";
+    return window.matchMedia("(prefers-color-scheme: dark)").matches;
+  });
 
-function App() {
+  useEffect(() => {
+    const root = document.documentElement;
+    if (dark) root.classList.add("dark");
+    else root.classList.remove("dark");
+    localStorage.setItem("theme", dark ? "dark" : "light");
+  }, [dark]);
+
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <LocalizationProvider dateAdapter={AdapterDayjs}>
-        <Router>
-          <div className='max-w-[450px] overflow-hidden w-full mx-auto flex flex-col h-screen justify-evenly items-center bg-white'>
-            <Routes>
-              <Route path="/" element={<WelcomePage />} />
-              <Route path="/login" element={<LoginPage />} />
-              <Route path="/register" element={<RegisterPage />} />
-              <Route path="/otp" element={<OTPPage />} />
-              <Route path="/face-id" element={<FaceIDPage />} />
-              <Route path="/home" element={<HomePage />} />
-              <Route path="/emergency-contacts" element={<EmergencyContactsPage />} />
-              <Route path="/appointments" element={<AppointmentsPage />} />
-              <Route path="/health" element={<HealthPage />} />
-              <Route path="/medicines" element={<MedicinesPage />} />
-            </Routes>
-          </div>
-        </Router>
-      </LocalizationProvider>
-    </ThemeProvider>
+    <BrowserRouter>
+      <div className="min-h-[100dvh] max-w-[425px] mx-auto border flex flex-col">
+        <header className="flex justify-between items-center p-4 border-b">
+          <h1 className="text-3xl font-bold leading-0 tracking-tight">
+            SVAASTHY.
+          </h1>
+          <button
+            onClick={() => setDark((prev) => !prev)}
+            aria-label="Toggle dark mode"
+            className="p-2 rounded"
+          >
+            <CgDarkMode
+              size={24}
+              className="active:scale-110 hover:cursor-pointer"
+            />
+          </button>
+        </header>
+
+        <main className="flex-grow w-full p-4">
+          <Routes>
+            <Route path="/" element={<WelcomePage />} />
+            <Route path="/authentication" element={<Authentication />} />
+            <Route path="/otp" element={<OTPPage />} />
+            <Route path="/face-id" element={<FaceIDPage />} />
+            <Route path="/home" element={<HomePage />} />
+            <Route
+              path="/emergency-contacts"
+              element={<EmergencyContactsPage />}
+            />
+            <Route path="/appointments" element={<AppointmentsPage />} />
+            <Route path="/health" element={<HealthPage />} />
+            <Route path="/medicines" element={<MedicinesPage />} />
+            <Route path="/data-vault" element={<DataVault />} />
+            <Route path="/settings" element={<Settings />} />
+          </Routes>
+        </main>
+      </div>
+    </BrowserRouter>
   );
-}
+};
 
 export default App;
