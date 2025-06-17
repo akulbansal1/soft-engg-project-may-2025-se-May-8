@@ -1,0 +1,26 @@
+# Core FastAPI
+fastapi==0.115.6
+uvicorn[standard]==0.29.0
+
+# Database
+sqlalchemy==2.0.36
+psycopg2-binary==2.9.10
+psycopg[binary]==3.2.9
+alembic==1.13.1
+
+# Redis for caching and broker
+redis==5.0.1
+celery==5.3.6
+
+# Environment variables
+python-dotenv==1.0.1
+
+# Security and validation
+# pydantic==2.6.1  # Using FastAPI's built-in pydantic
+email-validator==2.1.1
+passlib[bcrypt]==1.7.4
+python-jose[cryptography]==3.3.0
+
+# Development
+pytest==8.0.0
+pytest-asyncio==0.23.5
