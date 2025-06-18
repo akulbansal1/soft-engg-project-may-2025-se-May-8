@@ -1,23 +1,24 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 from datetime import datetime
 from typing import Optional
 
 class UserBase(BaseModel):
     """Base user schema with core fields"""
     name: str
-    email: EmailStr
+    phone: int
 
 class UserCreate(UserBase):
     """Schema for user registration"""
-    pass
+    is_active: bool = True  # Default to active when creating
 
 class UserLogin(BaseModel):
     """Schema for user login"""
-    email: EmailStr
+    phone: int
 
 class UserResponse(UserBase):
     """Schema for user response data"""
     id: int
+    is_active: bool
     created_at: datetime
 
     class Config:
@@ -28,8 +29,10 @@ class UserSession(BaseModel):
     user_id: int
     session_token: str
     expires_at: datetime
+    created_at: datetime
 
 class UserUpdate(BaseModel):
     """Schema for updating user information"""
     name: Optional[str] = None
-    email: Optional[EmailStr] = None
+    phone: Optional[int] = None
+    is_active: Optional[bool] = None

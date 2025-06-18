@@ -1,11 +1,13 @@
 import os
 from dotenv import load_dotenv
+from datetime import timedelta
 
 load_dotenv()
 
 class Settings:
     """Application settings and configuration"""
-    
+
+
     # Database
     DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./app.db")
     
@@ -39,6 +41,14 @@ class Settings:
     DEBUG = os.getenv("DEBUG", "True").lower() == "true"
     API_V1_STR = "/api/v1"
     PROJECT_NAME = "SE Project API"
+
+    # Frontend Domain 
+    FRONTEND_DOMAIN = os.getenv("FRONTEND_DOMAIN", "http://localhost:3000")
+
+    CHALLENGE_TIMEOUT = 300000 # 5 minutes in milliseconds
+    CHALLENGE_CAHCE_EXPIRY = 600  # 10 minutes in seconds
+
+    SESSION_TOKEN_EXPIRY = timedelta(hours=24*7)  # 7 days
     
     # Celery
     CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/0")

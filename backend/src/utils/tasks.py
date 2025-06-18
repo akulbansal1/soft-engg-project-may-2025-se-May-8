@@ -10,7 +10,7 @@ def send_notification(message: str = "Hello from Celery!", user_id: int = None):
     logger.info(f"Sending notification to user {user_id}: {message}")
     
     # TODO: Implement actual notification logic here
-    # - Email notifications
+    # - Phone notifications
     # - Push notifications
     # - SMS notifications
     # - In-app notifications
