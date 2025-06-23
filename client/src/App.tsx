@@ -30,7 +30,7 @@ const App: React.FC = () => {
 
   return (
     <BrowserRouter>
-      <div className="min-h-[100dvh] max-w-[425px] mx-auto border flex flex-col">
+      <div className="min-h-[100dvh] sm:w-[90%] md:w-[80%] max-w-[1000px] mx-auto flex flex-col">
         <header className="flex justify-between items-center p-4 border-b">
           <h1 className="text-3xl font-bold leading-0 tracking-tight">
             SVAASTHY.
