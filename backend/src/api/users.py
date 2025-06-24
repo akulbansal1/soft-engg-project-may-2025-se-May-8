@@ -9,8 +9,7 @@ from src.utils.cache import Cache
 
 router = APIRouter(prefix="/users", tags=["🔐 Users"])
 
-# Additional Helper Endpoints
-
+## TODO: Might wanna gate this endpoint with authentication to prevent DOS attacks
 @router.get("/", response_model=List[UserResponse])
 def get_users(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     """Get all users with caching"""
@@ -30,6 +29,7 @@ def get_users(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     
     return users_data
 
+## TODO: Might wanna gate this endpoint with authentication to prevent DOS attacks
 @router.get("/{user_id}", response_model=UserResponse)
 def get_user(user_id: int, db: Session = Depends(get_db)):
     """Get user by ID"""
@@ -38,26 +38,15 @@ def get_user(user_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="User not found")
     return user
 
-@router.put("/{user_id}", response_model=UserResponse)
-def update_user(user_id: int, user_update: UserUpdate, db: Session = Depends(get_db)):
-    """Update user information"""
-    updated_user = UserService.update_user(db, user_id, user_update)
-    if not updated_user:
-        raise HTTPException(status_code=404, detail="User not found")
+## TODO: Implement this endpoint properly with the right authentication setting
+# @router.put("/{user_id}", response_model=UserResponse)
+# def update_user(user_id: int, user_update: UserUpdate, db: Session = Depends(get_db)):
+#     """Update user information"""
+#     updated_user = UserService.update_user(db, user_id, user_update)
+#     if not updated_user:
+#         raise HTTPException(status_code=404, detail="User not found")
     
-    # Clear cache
-    Cache.clear_pattern("users_list_*")
+#     # Clear cache
+#     Cache.clear_pattern("users_list_*")
     
-    return updated_user
-
-@router.delete("/{user_id}")
-def delete_user(user_id: int, db: Session = Depends(get_db)):
-    """Delete a user"""
-    success = UserService.delete_user(db, user_id)
-    if not success:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    # Clear cache
-    Cache.clear_pattern("users_list_*")
-    
-    return {"message": "User deleted successfully"}
+#     return updated_user

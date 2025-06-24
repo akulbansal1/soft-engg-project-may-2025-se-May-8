@@ -7,6 +7,7 @@ from src.utils.cache import Cache
 from typing import List, Optional
 import secrets
 import datetime
+import json
 
 class UserService:
     """
@@ -52,7 +53,6 @@ class UserService:
         if not user.is_active:
             return None
         
-        # TODO: Add passkey authentication logic here
         return user
     
     @staticmethod
@@ -62,8 +62,29 @@ class UserService:
         Invalidates user session
         (Session management logic to be implemented)
         """
-        # TODO: Implement session invalidation logic
+
+        user = UserService.get_user_by_session(session_token=session_token)
+
+        if not user or user.id != user_id:
+            print(f"User ID mismatch or user not found for session {session_token}")
+            return False
+        
+        # Invalidate session
+        Cache.delete(f"session_{session_token}")
+
         print(f"Logging out user {user_id} with session {session_token}")
+        return True
+    
+    @staticmethod
+    def logout_user_by_token(session_token: str) -> bool:
+        """
+        User logout function using session token
+        Invalidates user session by token
+        """
+      
+        # For now, we'll store in Cache with expiry
+        Cache.delete(f"session_{session_token}")
+        print(f"Logged out session: {session_token}")
         return True
     
     @staticmethod
@@ -75,31 +96,62 @@ class UserService:
         session_token = secrets.token_urlsafe(32)
         expires_at = datetime.datetime.now() + settings.SESSION_TOKEN_EXPIRY
         
-        session_data = UserSession(
-            user_id=user_id,
-            session_token=session_token,
-            expires_at=expires_at,
-            created_at=datetime.datetime.now()
-        )
+        session_data = {
+            "user_id": user_id,
+            "session_token": session_token,
+            "expires_at": expires_at.isoformat(),
+            "created_at": datetime.datetime.now().isoformat()
+        }
 
-        ## NOTE: Convert the SESSION_TOKEN_EXPIRY to a seconds 
-        Cache.set(f"session:{user_id}", session_data, settings.SESSION_TOKEN_EXPIRY)
+        Cache.set(f"session_{session_token}", json.dumps(session_data), expiry=settings.SESSION_TOKEN_EXPIRY.total_seconds())
         
         print(f"Session issued for user {user_id}: {session_token}")
         return session_data
     
-    # Method to activate user
     @staticmethod
-    def activate_user(db: Session, user_id: int) -> Optional[User]:
-        """Activate a user by ID"""
-        db_user = db.query(User).filter(User.id == user_id).first()
-        if not db_user:
+    def get_user_by_session(db: Session, session_token: str) -> Optional[User]:
+        """
+        Get user by session token
+        """
+
+        session_data_json = Cache.get(f"session_{session_token}")
+        if not session_data_json:
             return None
         
-        db_user.is_active = True
+        try:
+            session_data = json.loads(session_data_json)
+            user_id = session_data.get("user_id")
+            expires_at_str = session_data.get("expires_at")
+            
+            # Check if session has expired
+            if expires_at_str:
+                expires_at = datetime.datetime.fromisoformat(expires_at_str)
+                if datetime.datetime.now() > expires_at:
+                    Cache.delete(f"session_{session_token}")
+                    return None
+            
+            # Get user by ID
+            user = UserService.get_user_by_id(db, user_id)
+            if user and user.is_active:
+                return user
+                
+        except (json.JSONDecodeError, ValueError):
+            Cache.delete(f"session_{session_token}")
+            
+        return None
+    
+    @staticmethod
+    def activate_user(db: Session, user_id: int) -> bool:
+        """
+        Activate a user account
+        """
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            return False
+        
+        user.is_active = True
         db.commit()
-        db.refresh(db_user)
-        return db_user
+        return True
     
     # Helper methods for CRUD operations
     @staticmethod

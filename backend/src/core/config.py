@@ -45,10 +45,13 @@ class Settings:
     # Frontend Domain 
     FRONTEND_DOMAIN = os.getenv("FRONTEND_DOMAIN", "http://localhost:3000")
 
-    CHALLENGE_TIMEOUT = 300000 # 5 minutes in milliseconds
-    CHALLENGE_CAHCE_EXPIRY = 600  # 10 minutes in seconds
+    CHALLENGE_TIMEOUT = timedelta(minutes=5).microseconds # 5 minutes in milliseconds
+    CHALLENGE_CAHCE_EXPIRY = timedelta(minutes=10).seconds # 10 minutes in seconds
 
-    SESSION_TOKEN_EXPIRY = timedelta(hours=24*7)  # 7 days
+    SESSION_TOKEN_EXPIRY = timedelta(hours=24*7) # 7 days
+
+    COOKIE_EXPIRY = timedelta(days=7)  # 7 days
+    COOKIE_SECURE = False # Set to True in production with HTTPS
     
     # Celery
     CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/0")
