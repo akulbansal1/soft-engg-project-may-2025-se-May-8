@@ -1,10 +1,10 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
-import { PlusCircle, Edit, Trash2 } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { PlusCircle, Edit, Trash2, Search } from "lucide-react";
 
 import {
   Dialog,
@@ -24,7 +24,6 @@ interface Medication {
 }
 
 const MedicinesPage: React.FC = () => {
-  const navigate = useNavigate();
   const [activeMeds, setActiveMeds] = useState<Medication[]>([
     {
       name: "Atorvastatin",
@@ -38,13 +37,38 @@ const MedicinesPage: React.FC = () => {
       dosage: "500mg",
       duration: "6 months",
     },
+    {
+      name: "Amlodipine",
+      frequency: "Once daily",
+      dosage: "5mg",
+      duration: "12 months",
+    },
+    {
+      name: "Aspirin",
+      frequency: "Once daily",
+      dosage: "81mg",
+      duration: "Ongoing",
+    },
   ]);
+
   const [pastMeds] = useState<Medication[]>([
     {
       name: "Lisinopril",
       frequency: "Once daily",
       dosage: "10mg",
       duration: "1 year",
+    },
+    {
+      name: "Omeprazole",
+      frequency: "Once daily",
+      dosage: "20mg",
+      duration: "2 months",
+    },
+    {
+      name: "Ibuprofen",
+      frequency: "As needed",
+      dosage: "400mg",
+      duration: "1 week",
     },
   ]);
 
@@ -56,6 +80,8 @@ const MedicinesPage: React.FC = () => {
   });
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [activeTab, setActiveTab] = useState("active");
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -85,8 +111,83 @@ const MedicinesPage: React.FC = () => {
     setActiveMeds((prev) => prev.filter((_, i) => i !== idx));
   };
 
+  const filteredActiveMeds = useMemo(() => {
+    return activeMeds.filter(
+      (med) =>
+        med.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        med.dosage.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        med.frequency.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        med.duration.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [activeMeds, searchTerm]);
+
+  const filteredPastMeds = useMemo(() => {
+    return pastMeds.filter(
+      (med) =>
+        med.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        med.dosage.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        med.frequency.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        med.duration.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [pastMeds, searchTerm]);
+
+  const renderMedicationList = (meds: Medication[], isActive = true) => (
+    <div className="space-y-3">
+      {meds.length === 0 ? (
+        <div className="text-center py-8 text-muted-foreground">
+          <p>No medications found</p>
+          {searchTerm && (
+            <p className="text-sm">Try adjusting your search terms</p>
+          )}
+        </div>
+      ) : (
+        meds.map((med, idx) => (
+          <div
+            key={idx}
+            className="flex justify-between items-center border-b last:border-b-0 pb-3 last:pb-0"
+          >
+            <div className="flex-1">
+              <p className="font-medium text-lg">{med.name}</p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 mt-1">
+                <p className="text-sm text-muted-foreground">
+                  <span className="font-medium">Dosage:</span> {med.dosage}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  <span className="font-medium">Frequency:</span>{" "}
+                  {med.frequency}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  <span className="font-medium">Duration:</span> {med.duration}
+                </p>
+              </div>
+            </div>
+            <div className="flex space-x-2 ml-4">
+              {isActive && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => handleEdit(idx)}
+                >
+                  <Edit size={16} />
+                </Button>
+              )}
+              <Button
+                variant="destructive"
+                size="icon"
+                onClick={() => (isActive ? handleDelete(idx) : null)}
+              >
+                <Trash2 size={16} />
+              </Button>
+            </div>
+          </div>
+        ))
+      )}
+    </div>
+  );
+
   return (
-    <div className="h-full min-h-[calc(100dvh-110px)] flex flex-col space-y-6">
+    <div className="h-[calc(100dvh-110px)] flex flex-col space-y-6 overflow-hidden">
+      {/* Header & Add Button */}
       <div className="flex justify-between">
         <h2 className="text-2xl font-semibold">My Medicines</h2>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -103,7 +204,6 @@ const MedicinesPage: React.FC = () => {
                   duration: "",
                 });
               }}
-              className="cursor-pointer"
             >
               <PlusCircle className="mr-2" /> Add
             </Button>
@@ -125,48 +225,31 @@ const MedicinesPage: React.FC = () => {
                 value={newMed.name}
                 onChange={handleChange}
                 placeholder="Medicine Name"
-                className="cursor-pointer"
               />
               <Input
                 name="dosage"
                 value={newMed.dosage}
                 onChange={handleChange}
                 placeholder="Dosage (e.g., 20mg)"
-                className="cursor-pointer"
               />
               <Input
                 name="frequency"
                 value={newMed.frequency}
                 onChange={handleChange}
                 placeholder="Frequency (e.g., Twice daily)"
-                className="cursor-pointer"
               />
               <Input
                 name="duration"
                 value={newMed.duration}
                 onChange={handleChange}
                 placeholder="Duration (e.g., 3 months)"
-                className="cursor-pointer"
               />
             </div>
             <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setDialogOpen(false);
-                  setEditingIndex(null);
-                  setNewMed({
-                    name: "",
-                    frequency: "",
-                    dosage: "",
-                    duration: "",
-                  });
-                }}
-                className="cursor-pointer"
-              >
+              <Button variant="outline" onClick={() => setDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleAddOrUpdate} className="cursor-pointer">
+              <Button onClick={handleAddOrUpdate}>
                 {editingIndex !== null ? "Save Changes" : "Add"}
               </Button>
             </DialogFooter>
@@ -174,76 +257,61 @@ const MedicinesPage: React.FC = () => {
         </Dialog>
       </div>
 
-      <ScrollArea className="flex-grow">
-        {/* Active Medications */}
-        <Card className="mb-4">
-          <CardHeader>
-            <CardTitle>Active Medications</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {activeMeds.map((med, idx) => (
-              <div
-                key={idx}
-                className="flex justify-between items-center border-b last:border-b-0 pb-2"
-              >
-                <div>
-                  <p className="font-medium">{med.name}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {med.dosage}, {med.frequency}, {med.duration}
-                  </p>
-                </div>
-                <div className="flex space-x-2">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleEdit(idx)}
-                    className="cursor-pointer"
-                  >
-                    <Edit size={16} />
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    size="icon"
-                    onClick={() => handleDelete(idx)}
-                    className="cursor-pointer"
-                  >
-                    <Trash2 size={16} />
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
+      {/* Search */}
+      <div className="relative">
+        <Search
+          className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground"
+          size={16}
+        />
+        <Input
+          placeholder="Search medicines..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="pl-10"
+        />
+      </div>
 
-        {/* Past Medications */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Past Medications</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {pastMeds.map((med, idx) => (
-              <div
-                key={idx}
-                className="flex justify-between items-center border-b last:border-b-0 pb-2"
-              >
-                <div>
-                  <p className="font-medium">{med.name}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {med.dosage}, {med.frequency}, {med.duration}
-                  </p>
-                </div>
-                <Button
-                  variant="destructive"
-                  size="icon"
-                  className="cursor-pointer"
-                >
-                  <Trash2 size={16} />
-                </Button>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      </ScrollArea>
+      {/* Tabs and Scrollable Content */}
+      <Tabs
+        value={activeTab}
+        onValueChange={setActiveTab}
+        className="flex-1 flex flex-col overflow-hidden"
+      >
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="active">
+            Active Medications ({filteredActiveMeds.length})
+          </TabsTrigger>
+          <TabsTrigger value="past">
+            Past Medications ({filteredPastMeds.length})
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="active" className="flex-1 mt-4 overflow-hidden">
+          <Card className="flex flex-col h-full">
+            <CardHeader>
+              <CardTitle>Active Medications</CardTitle>
+            </CardHeader>
+            <CardContent className="flex-1 overflow-hidden">
+              <ScrollArea className="h-full pr-4">
+                {renderMedicationList(filteredActiveMeds, true)}
+              </ScrollArea>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="past" className="flex-1 mt-4 overflow-hidden">
+          <Card className="flex flex-col h-full">
+            <CardHeader>
+              <CardTitle>Past Medications</CardTitle>
+            </CardHeader>
+            <CardContent className="flex-1 overflow-hidden">
+              <ScrollArea className="h-full pr-4">
+                {renderMedicationList(filteredPastMeds, false)}
+              </ScrollArea>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

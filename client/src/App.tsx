@@ -13,7 +13,6 @@ import MedicinesPage from "./pages/MedicinesPage";
 import DataVault from "./pages/DataVault";
 import Settings from "./pages/Settings";
 
-
 const App: React.FC = () => {
   const [dark, setDark] = useState<boolean>(() => {
     const stored = localStorage.getItem("theme");
@@ -31,7 +30,7 @@ const App: React.FC = () => {
   return (
     <BrowserRouter>
       <div className="min-h-[100dvh] sm:w-[90%] md:w-[80%] max-w-[1000px] mx-auto flex flex-col">
-        <header className="flex justify-between items-center p-4 border-b">
+        <header className="sticky top-0 z-50 flex justify-between items-center p-4 border-b bg-background">
           <h1 className="text-3xl font-bold leading-0 tracking-tight">
             SVAASTHY.
           </h1>

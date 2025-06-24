@@ -11,7 +11,6 @@ import {
   AlertOctagon,
   Pill,
   CalendarCheck,
-  HeartPulse,
   Lock,
   PhoneCall,
   Stethoscope,
@@ -32,7 +31,6 @@ const HomePage: React.FC = () => {
   const menuItems = [
     { title: "My Medicines", route: "/medicines", icon: Pill },
     { title: "My Appointments", route: "/appointments", icon: CalendarCheck },
-    { title: "My Health", route: "/health", icon: HeartPulse },
     { title: "My Data Vault", route: "/data-vault", icon: Lock },
     {
       title: "Emergency Contacts",
@@ -129,14 +127,14 @@ const HomePage: React.FC = () => {
                 <CircularProgressbar
                   value={(countdown / 10) * 100}
                   text={`${countdown}s`}
-                  strokeWidth={10} 
+                  strokeWidth={10}
                   styles={buildStyles({
                     pathColor: "#fff",
                     trailColor: "transparent",
                     textColor: "#fff",
                     textSize: "18px",
-                    strokeLinecap: "round", 
-                    pathTransitionDuration: 0.3, 
+                    strokeLinecap: "round",
+                    pathTransitionDuration: 0.3,
                   })}
                 />
               </div>
