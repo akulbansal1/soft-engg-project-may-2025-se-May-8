@@ -18,7 +18,7 @@ from src.schemas.passkey import (
     LoginResponse,
     PasskeyVerificationResult
 )
-from src.schemas.user import UserResponse, UserSession
+from src.schemas.user import UserResponse, UserSession, UserCreate
 from src.core.config import settings
 from src.utils.cache import Cache
 
