@@ -44,6 +44,10 @@ const WelcomePage: React.FC = () => {
             <div className="absolute top-2 left-0 w-8 h-4 bg-green-500 rounded-sm" />
             <div className="absolute top-0 left-2 w-4 h-8 bg-green-500 rounded-sm" />
           </div>
+          <div className="relative w-8 h-8 opacity-10">
+            <div className="absolute top-2 left-0 w-8 h-4 bg-green-500 rounded-sm" />
+            <div className="absolute top-0 left-2 w-4 h-8 bg-green-500 rounded-sm" />
+          </div>
         </div>
         <div className="absolute bottom-1/3 right-16">
           <div className="relative w-6 h-6 opacity-15">
