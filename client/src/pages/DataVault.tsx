@@ -203,7 +203,7 @@ const DataVault: React.FC = () => {
                     </Button>
                     <input
                       type="file"
-                      ref={(ref) => (reuploadRefs.current[doc.id] = ref)}
+                      ref={ref => { reuploadRefs.current[doc.id] = ref; }}
                       onChange={(e) => handleReupload(e, doc.id)}
                       className="hidden"
                     />
