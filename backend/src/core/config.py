@@ -43,10 +43,11 @@ class Settings:
     PROJECT_NAME = "SE Project API"
 
     # Frontend Domain 
-    FRONTEND_DOMAIN = os.getenv("FRONTEND_DOMAIN", "http://localhost:3000")
+    FRONTEND_RP_ID = os.getenv("FRONTEND_RP_ID", "localhost:3000")
+    FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "http://localhost:3000")
 
-    CHALLENGE_TIMEOUT = timedelta(minutes=5).microseconds # 5 minutes in milliseconds
-    CHALLENGE_CAHCE_EXPIRY = timedelta(minutes=10).seconds # 10 minutes in seconds
+    CHALLENGE_TIMEOUT = int(timedelta(minutes=5).total_seconds() * 1000000)  # 5 minutes in microseconds
+    CHALLENGE_CACHE_EXPIRY = int(timedelta(minutes=10).total_seconds())  # 10 minutes in seconds
 
     SESSION_TOKEN_EXPIRY = timedelta(hours=24*7) # 7 days
 
@@ -64,5 +65,20 @@ class Settings:
         "http://127.0.0.1:3000",
         "http://127.0.0.1:5173",
     ]
+
+    AUTH_FREE_PATHS = [
+        "/api/v1/",
+        "/api/v1/health",
+        "/api/v1/openapi.json",
+        "/docs",
+        "/redoc",
+        "/api/v1/auth/passkey/register/challenge",
+        "/api/v1/auth/passkey/register/verify",
+        "/api/v1/auth/passkey/login/challenge",
+        "/api/v1/auth/passkey/login/verify",
+    ]
+
+
+    ADMIN_SESSION_TOKEN = SECRET_KEY
 
 settings = Settings()

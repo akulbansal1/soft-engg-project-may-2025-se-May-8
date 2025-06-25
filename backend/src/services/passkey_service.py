@@ -3,6 +3,7 @@ from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException, status
 from typing import Optional, List, Dict, Any
 from webauthn import generate_registration_options, verify_registration_response, generate_authentication_options, verify_authentication_response
+from webauthn.helpers.structs import AuthenticatorSelectionCriteria, UserVerificationRequirement
 import json
 
 from src.services.user_service import UserService
@@ -17,7 +18,7 @@ from src.schemas.passkey import (
     LoginResponse,
     PasskeyVerificationResult
 )
-from src.schemas.user import UserCreate, UserUpdate, UserResponse, UserLogin, UserSession
+from src.schemas.user import UserResponse, UserSession
 from src.core.config import settings
 from src.utils.cache import Cache
 
@@ -51,20 +52,22 @@ class PasskeyService:
         
         # Generate challenge using the model method
         challenge_data = generate_registration_options(
-            rp_id= settings.FRONTEND_DOMAIN,  # Replace with RP ID
+            rp_id= settings.FRONTEND_RP_ID,  # Replace with RP ID
             rp_name=settings.PROJECT_NAME,  # Replace with RP name  
-            user_id=str(user_id), 
-            user_name=user_phone,  
+            user_id=bytes(user_id),  # need to convert into bytes
+            user_name=str(user_phone),  
             user_display_name=user_name,
             attestation="none",
-            authenticator_selection={
-            "userVerification": "required", # Require biometric or PIN        
-            },
+            authenticator_selection=AuthenticatorSelectionCriteria(
+                user_verification=UserVerificationRequirement.REQUIRED
+            ),
             timeout= settings.CHALLENGE_TIMEOUT,
         )
         
         # Store challenge in session/cache for verification
-        Cache.set(f"webauthn_signup_challenge_{user_id}", json.dumps(challenge_data.challenge), expiry=settings.CHALLENGE_CAHCE_EXPIRY)
+        # Convert challenge_data to dict for JSON serialization
+        challenge_dict = challenge_data.model_dump() if hasattr(challenge_data, 'model_dump') else challenge_data.__dict__
+        Cache.set(f"webauthn_signup_challenge_{user_id}", json.dumps(challenge_dict, default=str), expiry=settings.CHALLENGE_CACHE_EXPIRY)
     
         return challenge_data
 
@@ -99,8 +102,8 @@ class PasskeyService:
         # Verify the registration response
         response = verify_registration_response(
             credential=response_data,
-            expected_challenge=challenge_data,
-            expected_rp_id=settings.FRONTEND_DOMAIN,  
+            expected_challenge=challenge_data.get('challenge') if isinstance(challenge_data, dict) else challenge_data,
+            expected_rp_id=settings.FRONTEND_RP_ID,  
             expected_origin=settings.FRONTEND_ORIGIN,
             require_user_verification=True  
         )
@@ -159,7 +162,7 @@ class PasskeyService:
         
         # Generate challenge using the model method
         challenge_data = generate_authentication_options(
-            rp_id=settings.FRONTEND_DOMAIN, 
+            rp_id=settings.FRONTEND_RP_ID, 
             user_verification="required",
             timeout=settings.CHALLENGE_TIMEOUT,
             allow_credentials=[{
@@ -169,7 +172,9 @@ class PasskeyService:
         )
 
         # Store challenge in session/cache for verification
-        Cache.set(f"webauthn_login_challenge_{credential.user_id}", json.dumps(challenge_data.challenge), expiry=settings.CHALLENGE_CAHCE_EXPIRY)     
+        # Convert challenge_data to dict for JSON serialization
+        challenge_dict = challenge_data.model_dump() if hasattr(challenge_data, 'model_dump') else challenge_data.__dict__
+        Cache.set(f"webauthn_login_challenge_{credential.user_id}", json.dumps(challenge_dict, default=str), expiry=settings.CHALLENGE_CACHE_EXPIRY)     
         
         return challenge_data
 
@@ -208,8 +213,8 @@ class PasskeyService:
             # Verify the response
             response = verify_authentication_response(
                 credential=response_data,
-                expected_challenge=challenge_data,
-                expected_rp_id=settings.FRONTEND_DOMAIN,  
+                expected_challenge=challenge_data.get('challenge') if isinstance(challenge_data, dict) else challenge_data,
+                expected_rp_id=settings.FRONTEND_RP_ID,  
                 expected_origin=settings.FRONTEND_ORIGIN,
                 require_user_verification=True,
                 credential_public_key= credential.public_key,
@@ -223,7 +228,7 @@ class PasskeyService:
             # Update sign count in database
             credential.sign_count = response_data.sign_count
             db.commit()
-            
+
             return PasskeyVerificationResult(
                 success=True,
                 user_id=credential.user_id,

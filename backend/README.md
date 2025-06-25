@@ -294,18 +294,41 @@ alembic current
 
 ### Running Tests
 
+The project includes a comprehensive test suite covering server health, database operations, configuration, and API endpoints.
+
+#### Quick Test Run
+
 ```bash
 # Run all tests
 pytest
 
-# Run with coverage
-pytest --cov=src
+# Run all tests with verbose output
+pytest -v
 
-# Run specific test file
-pytest tests/test_user.py -v
+# Run tests with coverage report
+pytest --cov=src --cov-report=html --cov-report=term-missing
 
-# Run tests with output
-pytest -s
+# Run specific test files
+pytest tests/file_name.py        # Health checks
+```
+
+#### Test Configuration
+
+Tests use an isolated in-memory SQLite database to ensure:
+
+- Fast execution
+- No interference with development data
+- Consistent test environment
+- Parallel test execution safety
+
+#### Test Script
+
+Use the provided test runner for comprehensive testing:
+
+```bash
+# Make executable and run
+chmod +x run_tests.sh
+./run_tests.sh
 ```
 
 ### Environment Variables

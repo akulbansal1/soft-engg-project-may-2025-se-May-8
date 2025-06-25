@@ -5,7 +5,7 @@ from typing import List, Dict, Any, Optional
 from src.db.database import get_db
 from src.services.user_service import UserService
 from src.services.passkey_service import PasskeyService
-from src.schemas.user import UserCreate, UserUpdate, UserResponse, UserLogin, UserSession
+from src.schemas.user import  UserResponse, UserSession
 from src.schemas.passkey import (
     PasskeyCredentialResponse, 
     SignupResponse, 
@@ -14,8 +14,8 @@ from src.schemas.passkey import (
     PasskeyLoginRequest,
     PasskeyVerificationResult
 )
-from src.utils.cache import Cache
 from src.core.config import settings
+from src.core.auth_middleware import RequireOwnership, RequireAuth
 
 router = APIRouter(prefix="/auth", tags=["🔐 Authentication"])
 
@@ -156,8 +156,9 @@ def verify_passkey_login(
             detail=f"Failed to verify login: {str(e)}"
         )
 
+## TODO: Gate this to only allow the user itself to access their passkey info
 @router.get("/passkey/user/{user_id}", response_model=List[PasskeyCredentialResponse])
-def get_user_passkeys(user_id: int, db: Session = Depends(get_db)):
+def get_user_passkeys(user_id: int, current_user = Depends(RequireOwnership), db: Session = Depends(get_db)):
     """
     Get all passkey credentials for a user
     """
@@ -174,6 +175,7 @@ def get_user_passkeys(user_id: int, db: Session = Depends(get_db)):
 def logout_user(
     response: Response,
     session_token: Optional[str] = Cookie(None),
+    current_user = Depends(RequireAuth),
     db: Session = Depends(get_db)
 ):
     """
@@ -205,34 +207,12 @@ def logout_user(
     
     return {"message": "Logout successful"}
 
-# Authentication dependency to get current user from session cookie
-def get_current_user(
-    session_token: Optional[str] = Cookie(None),
-    db: Session = Depends(get_db)
-) -> UserResponse:
-    """
-    Dependency to get current authenticated user from session cookie
-    """
-    if not session_token:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="No session token provided"
-        )
-    
-    user = UserService.get_user_by_session(db, session_token)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired session"
-        )
-    
-    return UserResponse.model_validate(user)
-
-
-# Protected endpoint example
 @router.get("/me", response_model=UserResponse)
-def get_current_user_info(current_user: UserResponse = Depends(get_current_user)):
+def get_current_user_info(current_user = Depends(RequireAuth)):
     """
     Get current authenticated user information
     """
-    return current_user
+    return UserResponse.model_validate(current_user)
+
+
+## ADMIN ENDPOINT

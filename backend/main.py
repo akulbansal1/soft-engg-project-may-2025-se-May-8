@@ -1,10 +1,11 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from src.db.database import engine, Base
 from src.api import api_router
 from src.core.config import settings
+from src.core.auth_middleware import RequireAuth, OptionalAuth
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
@@ -29,12 +30,12 @@ app.add_middleware(
 # Include API routes
 app.include_router(api_router, prefix=settings.API_V1_STR)
 
-@app.get("/")
+@app.get("/api/v1/")
 def read_root():
     """Health check endpoint"""
     return {"message": "Backend is running!", "status": "ok", "version": "1.0.0"}
 
-@app.get("/health")
+@app.get("/api/v1/health")
 def health_check():
     """Health check for monitoring"""
     return {"status": "healthy", "service": "backend-api"}

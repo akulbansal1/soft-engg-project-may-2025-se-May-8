@@ -56,14 +56,14 @@ class UserService:
         return user
     
     @staticmethod
-    def logout_user(user_id: int, session_token: str) -> bool:
+    def logout_user(db: Session, user_id: int, session_token: str) -> bool:
         """
         User logout function
         Invalidates user session
         (Session management logic to be implemented)
         """
 
-        user = UserService.get_user_by_session(session_token=session_token)
+        user = UserService.get_user_by_session(db, session_token=session_token)
 
         if not user or user.id != user_id:
             print(f"User ID mismatch or user not found for session {session_token}")
@@ -112,23 +112,11 @@ class UserService:
     def get_user_by_session(db: Session, session_token: str) -> Optional[User]:
         """
         Get user by session token
-        """
-
-        session_data_json = Cache.get(f"session_{session_token}")
-        if not session_data_json:
-            return None
-        
+        """        
         try:
-            session_data = json.loads(session_data_json)
-            user_id = session_data.get("user_id")
-            expires_at_str = session_data.get("expires_at")
-            
-            # Check if session has expired
-            if expires_at_str:
-                expires_at = datetime.datetime.fromisoformat(expires_at_str)
-                if datetime.datetime.now() > expires_at:
-                    Cache.delete(f"session_{session_token}")
-                    return None
+            user_id = UserService.validate_session(db, session_token)
+            if not user_id:
+                return None
             
             # Get user by ID
             user = UserService.get_user_by_id(db, user_id)
@@ -152,6 +140,38 @@ class UserService:
         user.is_active = True
         db.commit()
         return True
+    
+    @staticmethod
+    def validate_session(db: Session, session_token: str) -> Optional[int]:
+        """
+        Validate session token and return user if valid
+        This is the main method for session authentication
+        """
+        if not session_token:
+            return None
+        
+        session_data_json = Cache.get(f"session_{session_token}")
+        if not session_data_json:
+            return None
+        
+        try:
+            session_data = json.loads(session_data_json)
+            user_id = session_data.get("user_id")
+            expires_at_str = session_data.get("expires_at")
+            
+            # Check if session has expired
+            if expires_at_str:
+                expires_at = datetime.datetime.fromisoformat(expires_at_str)
+                if datetime.datetime.now() > expires_at:
+                    Cache.delete(f"session_{session_token}")
+                    return None
+            
+            return user_id
+                
+        except (json.JSONDecodeError, ValueError):
+            Cache.delete(f"session_{session_token}")
+            
+        return None
     
     # Helper methods for CRUD operations
     @staticmethod
