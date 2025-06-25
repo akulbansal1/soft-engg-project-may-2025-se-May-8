@@ -23,6 +23,9 @@ interface Medication {
   duration: string;
 }
 
+// Add a start date, end date, notes (dialogue box). remove duration.
+// Mic for dictating Prescription.
+
 const MedicinesPage: React.FC = () => {
   const [activeMeds, setActiveMeds] = useState<Medication[]>([
     {
@@ -156,9 +159,17 @@ const MedicinesPage: React.FC = () => {
                   <span className="font-medium">Frequency:</span>{" "}
                   {med.frequency}
                 </p>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 mt-1">
                 <p className="text-sm text-muted-foreground">
-                  <span className="font-medium">Duration:</span> {med.duration}
+                  <span className="font-medium">Start Date:</span>{" "}
+                  12/03/2025
                 </p>
+                <p className="text-sm text-muted-foreground">
+                  <span className="font-medium">End Date:</span>{" "}
+                  15/04/2025
+                </p>
+                
               </div>
             </div>
             <div className="flex space-x-2 ml-4">

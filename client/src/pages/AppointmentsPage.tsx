@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
-import { Eye, Search } from "lucide-react";
+import { Eye, Search, ArrowLeft } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -13,6 +13,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { useNavigate } from "react-router-dom";
 
 interface Appointment {
   date: string;
@@ -23,6 +24,11 @@ interface Appointment {
   prescription?: string;
   comments?: string;
 }
+
+// Make a calendar or tabular view of the appointment's list.
+// Categorize by month or year.
+// Accordian view of year and then months within it.
+// Back button for every page
 
 const AppointmentsPage: React.FC = () => {
   const [appointments] = useState<Appointment[]>([
@@ -96,6 +102,8 @@ const AppointmentsPage: React.FC = () => {
 
   const today = new Date().toISOString().split("T")[0];
 
+  const navigate = useNavigate();
+
   const filteredUpcoming = useMemo(() => {
     return appointments
       .filter((a) => a.date >= today)
@@ -133,7 +141,17 @@ const AppointmentsPage: React.FC = () => {
 
   return (
     <div className="h-[calc(100dvh-110px)] flex flex-col space-y-6 overflow-hidden">
-      <h2 className="text-2xl font-semibold">My Appointments</h2>
+      <div className="flex items-center space-x-3">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="p-2"
+          onClick={() => navigate("/home")}
+        >
+          <ArrowLeft size={20} />
+        </Button>
+        <h2 className="text-2xl font-semibold">My Appointments</h2>
+      </div>
 
       <div className="relative">
         <Search

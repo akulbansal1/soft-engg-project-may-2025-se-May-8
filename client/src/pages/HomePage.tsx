@@ -29,9 +29,9 @@ const HomePage: React.FC = () => {
   const firstName = "John";
 
   const menuItems = [
-    { title: "My Medicines", route: "/medicines", icon: Pill },
-    { title: "My Appointments", route: "/appointments", icon: CalendarCheck },
-    { title: "My Data Vault", route: "/data-vault", icon: Lock },
+    { title: "Medicines", route: "/medicines", icon: Pill },
+    { title: "Appointments", route: "/appointments", icon: CalendarCheck },
+    { title: "Data Vault", route: "/data-vault", icon: Lock },
     {
       title: "Emergency Contacts",
       route: "/emergency-contacts",
@@ -129,9 +129,9 @@ const HomePage: React.FC = () => {
                   text={`${countdown}s`}
                   strokeWidth={10}
                   styles={buildStyles({
-                    pathColor: "#fff",
+                    pathColor: "red",
                     trailColor: "transparent",
-                    textColor: "#fff",
+                    textColor: "red",
                     textSize: "18px",
                     strokeLinecap: "round",
                     pathTransitionDuration: 0.3,

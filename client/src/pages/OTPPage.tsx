@@ -46,7 +46,7 @@ const OTPPage: React.FC = () => {
       {/* Bottom Sign In Button */}
       <div className="w-full max-w-sm mx-auto">
         <Button onClick={handleSubmit} className="w-full mt-4">
-          Sign In
+          Set up face ID
         </Button>
       </div>
     </div>

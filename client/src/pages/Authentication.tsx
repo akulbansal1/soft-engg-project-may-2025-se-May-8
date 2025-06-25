@@ -35,14 +35,14 @@ const AuthenticationPage: React.FC = () => {
   const [signInPhone, setSignInPhone] = React.useState("");
   const [signupData, setSignupData] = React.useState({
     firstName: "",
-    middleName: "",
     lastName: "",
     phone: "",
     dob: "",
     gender: "",
   });
-  const [loading] = React.useState(false);
-  const [msg] = React.useState("");
+  // combine first, middle and last an
+  const [loading, setLoading] = React.useState(false);
+  const [msg, setMsg] = React.useState("");
 
   // Your existing handlers would go here
   const handleSignIn = (e: React.FormEvent) => {
@@ -247,27 +247,6 @@ const AuthenticationPage: React.FC = () => {
                       className="pl-10 h-12 rounded-xl"
                     />
                   </div>
-
-                  <Button
-                    type="submit"
-                    className="w-full h-12 rounded-xl"
-                    onClick={() => navigate("/otp")}
-                  >
-                    <Phone className="w-4 h-4 mr-2" />
-                    Get OTP
-                  </Button>
-
-                  <div className="relative">
-                    <div className="absolute inset-0 flex items-center">
-                      <span className="w-full border-t border-border/50" />
-                    </div>
-                    <div className="relative flex justify-center text-xs uppercase">
-                      <span className="bg-background px-2 text-muted-foreground">
-                        Or continue with
-                      </span>
-                    </div>
-                  </div>
-
                   <Button
                     type="button"
                     variant="outline"
@@ -303,16 +282,6 @@ const AuthenticationPage: React.FC = () => {
                       className="h-12 rounded-xl"
                     />
                   </div>
-
-                  <Input
-                    type="text"
-                    name="middleName"
-                    placeholder="Middle Name (optional)"
-                    value={signupData.middleName}
-                    onChange={handleChange}
-                    className="h-12 rounded-xl"
-                  />
-
                   <div className="relative">
                     <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <Input
@@ -379,6 +348,7 @@ const AuthenticationPage: React.FC = () => {
                     type="submit"
                     className="w-full h-12 rounded-xl"
                     disabled={loading}
+                    onClick={() => navigate('/otp')}
                   >
                     <User className="w-4 h-4 mr-2" />
                     {loading ? "Creating Account..." : "Create Account"}
