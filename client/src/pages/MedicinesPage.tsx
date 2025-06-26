@@ -4,7 +4,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { PlusCircle, Edit, Trash2, Search } from "lucide-react";
+import { PlusCircle, Edit, Trash2, Search, ArrowLeft } from "lucide-react";
 
 import {
   Dialog,
@@ -15,6 +15,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { useNavigate } from "react-router-dom";
 
 interface Medication {
   name: string;
@@ -162,14 +163,11 @@ const MedicinesPage: React.FC = () => {
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 mt-1">
                 <p className="text-sm text-muted-foreground">
-                  <span className="font-medium">Start Date:</span>{" "}
-                  12/03/2025
+                  <span className="font-medium">Start Date:</span> 12/03/2025
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  <span className="font-medium">End Date:</span>{" "}
-                  15/04/2025
+                  <span className="font-medium">End Date:</span> 15/04/2025
                 </p>
-                
               </div>
             </div>
             <div className="flex space-x-2 ml-4">
@@ -196,11 +194,23 @@ const MedicinesPage: React.FC = () => {
     </div>
   );
 
+  const navigate = useNavigate();
+
   return (
     <div className="h-[calc(100dvh-110px)] flex flex-col space-y-6 overflow-hidden">
       {/* Header & Add Button */}
       <div className="flex justify-between">
-        <h2 className="text-2xl font-semibold">My Medicines</h2>
+        <h2 className="text-2xl font-semibold">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate("/home")}
+            className="mr-4"
+          >
+            <ArrowLeft size={20} />
+          </Button>
+          My Medicines
+        </h2>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
             <Button
@@ -298,7 +308,7 @@ const MedicinesPage: React.FC = () => {
         </TabsList>
 
         <TabsContent value="active" className="flex-1 mt-4 overflow-hidden">
-          <Card className="flex flex-col h-full">
+          <Card className="flex flex-col h-full bg-transparent">
             <CardHeader>
               <CardTitle>Active Medications</CardTitle>
             </CardHeader>
@@ -311,7 +321,7 @@ const MedicinesPage: React.FC = () => {
         </TabsContent>
 
         <TabsContent value="past" className="flex-1 mt-4 overflow-hidden">
-          <Card className="flex flex-col h-full">
+          <Card className="flex flex-col h-full bg-transparent">
             <CardHeader>
               <CardTitle>Past Medications</CardTitle>
             </CardHeader>
