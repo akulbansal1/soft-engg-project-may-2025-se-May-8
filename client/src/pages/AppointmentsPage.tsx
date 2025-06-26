@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useNavigate } from "react-router-dom";
+import { Calendar } from "@/components/ui/calendar";
 
 interface Appointment {
   date: string;
@@ -25,10 +26,11 @@ interface Appointment {
   comments?: string;
 }
 
-// Make a calendar or tabular view of the appointment's list.
-// Categorize by month or year.
-// Accordian view of year and then months within it.
-// Back button for every page
+// Parse date string as local date to avoid timezone offsets
+const parseLocalDate = (dateStr: string): Date => {
+  const [year, month, day] = dateStr.split("-").map(Number);
+  return new Date(year, month - 1, day);
+};
 
 const AppointmentsPage: React.FC = () => {
   const [appointments] = useState<Appointment[]>([
@@ -98,41 +100,56 @@ const AppointmentsPage: React.FC = () => {
   const [viewOpen, setViewOpen] = useState(false);
   const [detailIndex, setDetailIndex] = useState<number | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [tab, setTab] = useState("upcoming");
-
-  const today = new Date().toISOString().split("T")[0];
-
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+  const [tab, setTab] = useState("calendar");
+  const todayStr = new Date().toISOString().split("T")[0];
   const navigate = useNavigate();
 
-  const filteredUpcoming = useMemo(() => {
-    return appointments
-      .filter((a) => a.date >= today)
-      .filter((a) =>
-        [a.date, a.time, a.doctor, a.purpose, a.location].some((field) =>
-          field.toLowerCase().includes(searchTerm.toLowerCase())
-        )
-      )
-      .sort((a, b) => a.date.localeCompare(b.date));
-  }, [appointments, searchTerm]);
+  // Group appointments by local date string
+  const appointmentsByDate = useMemo(() => {
+    const map = new Map<string, Appointment[]>();
+    appointments.forEach((appt) => {
+      const key = parseLocalDate(appt.date).toDateString();
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(appt);
+    });
+    return map;
+  }, [appointments]);
 
-  const filteredPast = useMemo(() => {
-    return appointments
-      .filter((a) => a.date < today)
-      .filter((a) =>
-        [
-          a.date,
-          a.time,
-          a.doctor,
-          a.purpose,
-          a.location,
-          a.prescription ?? "",
-          a.comments ?? "",
-        ].some((field) =>
-          field.toLowerCase().includes(searchTerm.toLowerCase())
+  const formattedSelected = selectedDate?.toDateString() || "";
+  const dailyAppointments = appointmentsByDate.get(formattedSelected) || [];
+
+  const filteredUpcoming = useMemo(
+    () =>
+      appointments
+        .filter((a) => a.date >= todayStr)
+        .filter((a) =>
+          [a.date, a.time, a.doctor, a.purpose, a.location].some((f) =>
+            f.toLowerCase().includes(searchTerm.toLowerCase())
+          )
         )
-      )
-      .sort((a, b) => b.date.localeCompare(a.date));
-  }, [appointments, searchTerm]);
+        .sort((a, b) => a.date.localeCompare(b.date)),
+    [appointments, searchTerm]
+  );
+
+  const filteredPast = useMemo(
+    () =>
+      appointments
+        .filter((a) => a.date < todayStr)
+        .filter((a) =>
+          [
+            a.date,
+            a.time,
+            a.doctor,
+            a.purpose,
+            a.location,
+            a.prescription ?? "",
+            a.comments ?? "",
+          ].some((f) => f.toLowerCase().includes(searchTerm.toLowerCase()))
+        )
+        .sort((a, b) => b.date.localeCompare(a.date)),
+    [appointments, searchTerm]
+  );
 
   const openView = (idx: number) => {
     setDetailIndex(idx);
@@ -141,21 +158,25 @@ const AppointmentsPage: React.FC = () => {
 
   return (
     <div className="h-[calc(100dvh-110px)] flex flex-col space-y-6 overflow-hidden">
+      {/* Header */}
       <div className="flex items-center space-x-3">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="p-2"
-          onClick={() => navigate("/home")}
-        >
-          <ArrowLeft size={20} />
-        </Button>
-        <h2 className="text-2xl font-semibold">My Appointments</h2>
+        <h2 className="text-2xl font-semibold">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate("/home")}
+            className="mr-4"
+          >
+            <ArrowLeft size={20} />
+          </Button>
+          Appointments
+        </h2>
       </div>
 
+      {/* Search */}
       <div className="relative">
         <Search
-          className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground"
+          className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
           size={16}
         />
         <Input
@@ -171,18 +192,79 @@ const AppointmentsPage: React.FC = () => {
         onValueChange={setTab}
         className="flex-1 flex flex-col overflow-hidden"
       >
-        <TabsList className="grid grid-cols-2 w-full">
+        <TabsList className="grid grid-cols-3 w-full">
+          <TabsTrigger value="calendar">Calendar</TabsTrigger>
           <TabsTrigger value="upcoming">
             Upcoming ({filteredUpcoming.length})
           </TabsTrigger>
           <TabsTrigger value="past">Past ({filteredPast.length})</TabsTrigger>
         </TabsList>
 
+        {/* Calendar View */}
+        <TabsContent value="calendar" className="flex-1 overflow-hidden">
+          <div className="flex flex-col md:flex-row h-full gap-6">
+            {/* Calendar */}
+            <div className="flex-1 flex justify-center items-center">
+              <Calendar
+                mode="single"
+                selected={selectedDate}
+                onSelect={setSelectedDate}
+                className="w-full h-full min-h-[250px] md:min-h-[350px]"
+                modifiers={{
+                  hasAppointment: (date) =>
+                    appointmentsByDate.has(date.toDateString()),
+                }}
+                modifiersClassNames={{
+                  hasAppointment: "bg-blue-100 dark:bg-blue-900/50 rounded-lg",
+                }}
+              />
+            </div>
+
+            {/* Daily List */}
+            <div className="flex-1 flex flex-col">
+              <Card className="flex-1 bg-transparent shadow-none">
+                <CardHeader>
+                  <CardTitle>{formattedSelected || "Select a date"}</CardTitle>
+                </CardHeader>
+                <CardContent className="flex-1 overflow-y-auto">
+                  {dailyAppointments.length ? (
+                    dailyAppointments.map((appt, i) => (
+                      <div
+                        key={i}
+                        className="flex justify-between items-center border-b py-2"
+                      >
+                        <div>
+                          <p className="font-medium">
+                            {appt.time} – {appt.purpose}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            {appt.doctor}
+                          </p>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => openView(appointments.indexOf(appt))}
+                        >
+                          <Eye size={16} />
+                        </Button>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-muted-foreground">No appointments.</p>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </TabsContent>
+
+        {/* Upcoming Tab */}
         <TabsContent
           value="upcoming"
           className="flex-1 flex flex-col mt-4 overflow-hidden"
         >
-          <Card className="flex-1 flex flex-col overflow-hidden">
+          <Card className="flex-1 flex flex-col overflow-hidden bg-transparent">
             <CardHeader>
               <CardTitle>Upcoming Appointments</CardTitle>
             </CardHeader>
@@ -209,7 +291,6 @@ const AppointmentsPage: React.FC = () => {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="hover:cursor-pointer"
                         onClick={() => openView(appointments.indexOf(appt))}
                       >
                         <Eye size={16} />
@@ -222,11 +303,12 @@ const AppointmentsPage: React.FC = () => {
           </Card>
         </TabsContent>
 
+        {/* Past Tab */}
         <TabsContent
           value="past"
           className="flex-1 flex flex-col mt-4 overflow-hidden"
         >
-          <Card className="flex-1 flex flex-col overflow-hidden">
+          <Card className="flex-1 flex flex-col overflow-hidden bg-transparent">
             <CardHeader>
               <CardTitle>Past Appointments</CardTitle>
             </CardHeader>
@@ -309,9 +391,7 @@ const AppointmentsPage: React.FC = () => {
                     {appointments[detailIndex].location}
                   </p>
                 </div>
-
-                {/* Only show if appointment is in the past */}
-                {appointments[detailIndex].date < today && (
+                {appointments[detailIndex].date < todayStr && (
                   <>
                     <div className="p-4 bg-muted rounded-lg">
                       <h4 className="text-lg font-semibold mb-2">

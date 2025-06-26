@@ -1,7 +1,15 @@
 import React, { useRef, useState } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Trash2, FileText, Eye, Upload, Pencil, Search } from "lucide-react";
+import {
+  Trash2,
+  FileText,
+  Eye,
+  Upload,
+  Pencil,
+  Search,
+  ArrowLeft,
+} from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import {
@@ -11,6 +19,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { useNavigate } from "react-router-dom";
 
 interface Document {
   id: number;
@@ -79,14 +88,18 @@ const DataVault: React.FC = () => {
       doc.date.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const navigate = useNavigate();
+
   return (
     <div className="h-[calc(100dvh-110px)] flex flex-col space-y-6 overflow-hidden">
       <div className="flex justify-between items-end">
         <div>
-          <h2 className="text-2xl font-semibold">Data Vault</h2>
-          <p className="text-sm text-muted-foreground">
-            Your important medical documents
-          </p>
+          <h2 className="text-2xl font-semibold">
+            <Button variant="ghost" size="sm" onClick={() => navigate("/home")} className="mr-4">
+              <ArrowLeft size={20} />
+            </Button>
+            Data Vault
+          </h2>
         </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <Button variant="outline" onClick={() => setDialogOpen(true)}>
@@ -203,7 +216,9 @@ const DataVault: React.FC = () => {
                     </Button>
                     <input
                       type="file"
-                      ref={ref => { reuploadRefs.current[doc.id] = ref; }}
+                      ref={(ref) => {
+                        reuploadRefs.current[doc.id] = ref;
+                      }}
                       onChange={(e) => handleReupload(e, doc.id)}
                       className="hidden"
                     />
