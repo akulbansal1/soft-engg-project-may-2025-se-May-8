@@ -72,7 +72,6 @@ class PasskeyLoginRequest(BaseModel):
 
 class PasskeyVerificationResult(BaseModel):
     """Result of passkey verification"""
-    success: bool = Field(..., description="Whether verification was successful")
     user_id: Optional[int] = Field(None, description="User ID if login was successful")
     credential_id: Optional[str] = Field(None, description="Credential ID used")
-    message: str = Field(..., description="Result message")
+    session_expires_at: Optional[datetime] = Field(None, description="Session expiration time if applicable")

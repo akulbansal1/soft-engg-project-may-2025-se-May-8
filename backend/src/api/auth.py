@@ -61,7 +61,7 @@ def verify_passkey_registration(
         )
         
          # If registration successful, issue session
-        if result.success and result.user_id:
+        if result and result.user_id:
             session_data = UserService.issue_session(result.user_id)
 
             # Set session token as HTTP-only cookie
@@ -79,7 +79,7 @@ def verify_passkey_registration(
             result_dict["session_expires_at"] = session_data["expires_at"]
 
             return PasskeyVerificationResult(**result_dict)
-        
+
         return result
     except HTTPException:
         raise
@@ -128,7 +128,7 @@ def verify_passkey_login(
         )
         
         # If login successful, issue session
-        if result.success and result.user_id:
+        if result and result.user_id:
             session_data = UserService.issue_session(result.user_id)
 
             # Set session token as HTTP-only cookie
@@ -182,11 +182,6 @@ def logout_user(
     User Logout
     Invalidates user session and clears cookie
     """
-    if not session_token:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="No session token found"
-        )
     
     # For now, we'll just clear the cookie
     success = UserService.logout_user_by_token(session_token)

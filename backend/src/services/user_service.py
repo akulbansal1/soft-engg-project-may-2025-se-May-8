@@ -103,7 +103,7 @@ class UserService:
             "created_at": datetime.datetime.now().isoformat()
         }
 
-        Cache.set(f"session_{session_token}", json.dumps(session_data), expiry=settings.SESSION_TOKEN_EXPIRY.total_seconds())
+        Cache.set(f"session_{session_token}", json.dumps(session_data), expiry=int(settings.SESSION_TOKEN_EXPIRY.total_seconds()))
         
         print(f"Session issued for user {user_id}: {session_token}")
         return session_data

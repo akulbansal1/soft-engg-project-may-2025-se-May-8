@@ -136,10 +136,8 @@ class PasskeyService:
         Cache.delete(f"webauthn_signup_challenge_{existing_user.id}")
 
         return PasskeyVerificationResult(
-            success=True,
             user_id=existing_user.id,
             credential_id=credential.credential_id,
-            message="Registration successful"
         )
 
     @staticmethod
@@ -193,11 +191,11 @@ class PasskeyService:
         ).first()
         
         if not credential:
-            return PasskeyVerificationResult(
-                success=False,
-                message="Credential not found"
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Credential not found"
             )
-        
+
         # Retrieve challenge from cache
         challenge_data_json = Cache.get(f"webauthn_login_challenge_{credential.user_id}")
         if not challenge_data_json:
@@ -230,16 +228,14 @@ class PasskeyService:
             db.commit()
 
             return PasskeyVerificationResult(
-                success=True,
                 user_id=credential.user_id,
                 credential_id=credential.credential_id,
-                message="Authentication successful"
             )
         except Exception as e:
-
-            return PasskeyVerificationResult(
-                success=False,
-                message=f"Authentication failed: {str(e)}"
+            # If verification fails, return an error
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail=f"Authentication failed: {str(e)}"
             )
         
     # Internal method to create a credential

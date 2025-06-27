@@ -508,11 +508,9 @@ class TestPasskeyService:
                 
                 result = PasskeyService.verify_signup_response(test_db, 1234567890, response_data)
                 
-                assert result.success is True
                 assert result.user_id == user.id
                 assert result.credential_id == "test_credential_id"
-                assert "Registration successful" in result.message
-                
+
                 # Verify user was activated
                 test_db.refresh(user)
                 assert user.is_active is True
@@ -598,10 +596,9 @@ class TestPasskeyService:
                 
                 result = PasskeyService.verify_login_response(test_db, "test_credential_id", response_data)
                 
-                assert result.success is True
+           
                 assert result.user_id == user.id
                 assert result.credential_id == "test_credential_id"
-                assert "Authentication successful" in result.message
                 
                 # Verify cache was cleared
                 mock_cache_delete.assert_called_once()
@@ -615,11 +612,14 @@ class TestPasskeyService:
             authenticator_data="test_auth_data",
             sign_count=1
         )
-        
-        result = PasskeyService.verify_login_response(test_db, "non_existent_credential", response_data)
-        
-        assert result.success is False
-        assert "Credential not found" in result.message
+
+        from fastapi import HTTPException
+        with pytest.raises(HTTPException) as exc_info:
+                PasskeyService.verify_login_response(test_db, "non_existent_credential", response_data)
+
+                assert exc_info.value.status_code == 404
+                assert "Credential not found" in str(exc_info.value.detail)
+    
 
     def test_verify_login_response_challenge_expired(self, test_db):
         """Test login response verification fails for expired challenge"""
