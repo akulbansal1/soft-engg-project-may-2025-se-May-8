@@ -82,14 +82,17 @@ def test_settings():
 @pytest.fixture
 def test_user_data():
     """Sample user data for testing"""
+    from datetime import date
     return {
         "name": "Test User",
-        "phone": "+1234567890"
+        "phone": "1234567890",
+        "dob": date(1990, 1, 15),
+        "gender": "Other"
     }
 
 @pytest.fixture
 def test_login_data():
     """Sample login data for testing"""
     return {
-        "phone": "+1234567890"
+        "phone": "1234567890"
     }

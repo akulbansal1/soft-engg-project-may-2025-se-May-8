@@ -30,7 +30,13 @@ def create_passkey_registration_challenge(
     """
     try:
         # Create registration challenge
-        challenge_data = PasskeyService.create_signup_challenge(db, request.user_phone, request.user_name)
+        challenge_data = PasskeyService.create_signup_challenge(
+            db, 
+            request.user_phone, 
+            request.user_name, 
+            request.user_dob, 
+            request.user_gender
+        )
 
         return {
             "challenge": challenge_data,

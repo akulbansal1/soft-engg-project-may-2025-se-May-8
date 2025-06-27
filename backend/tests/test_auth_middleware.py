@@ -29,7 +29,7 @@ class TestAuthMiddleware:
         # Create a test user
         user_data = UserCreate(
             name="Test User",
-            phone=1234567890,
+            phone="1234567890",
             is_active=True
         )
         test_user = UserService.register_user(test_db, user_data)
@@ -42,7 +42,7 @@ class TestAuthMiddleware:
             assert user is not None
             assert user.id == test_user.id
             assert user.name == "Test User"
-            assert user.phone == 1234567890
+            assert user.phone == "1234567890"
 
     def test_get_current_user_no_token(self, test_db):
         """Test authentication fails when no session token provided"""
@@ -70,7 +70,7 @@ class TestAuthMiddleware:
         # Create a test user
         user_data = UserCreate(
             name="Test User",
-            phone=1234567890,
+            phone="1234567890",
             is_active=True
         )
         test_user = UserService.register_user(test_db, user_data)
@@ -101,7 +101,7 @@ class TestAuthMiddleware:
         # Create a test user
         user_data = UserCreate(
             name="Test User",
-            phone=1234567890,
+            phone="1234567890",
             is_active=True
         )
         test_user = UserService.register_user(test_db, user_data)
@@ -116,12 +116,12 @@ class TestAuthMiddleware:
         # Create test users
         user1_data = UserCreate(
             name="User 1",
-            phone=1111111111,
+            phone="1111111111",
             is_active=True
         )
         user2_data = UserCreate(
             name="User 2",
-            phone=2222222222,
+            phone="2222222222",
             is_active=True
         )
         user1 = UserService.register_user(test_db, user1_data)
@@ -166,7 +166,7 @@ class TestAuthenticationAliases:
         # Create a test user
         user_data = UserCreate(
             name="Test User",
-            phone=1234567890,
+            phone="1234567890",
             is_active=True
         )
         test_user = UserService.register_user(test_db, user_data)
@@ -189,7 +189,7 @@ class TestAuthenticationAliases:
         # Create a test user
         user_data = UserCreate(
             name="Test User",
-            phone=1234567890,
+            phone="1234567890",
             is_active=True
         )
         test_user = UserService.register_user(test_db, user_data)
@@ -210,8 +210,8 @@ class TestAuthMiddlewareIntegration:
     def test_multiple_users_session_isolation(self, test_db):
         """Test that user sessions are properly isolated"""
         # Create multiple users
-        user1_data = UserCreate(name="User 1", phone=1111111111, is_active=True)
-        user2_data = UserCreate(name="User 2", phone=2222222222, is_active=True)
+        user1_data = UserCreate(name="User 1", phone="1111111111", is_active=True)
+        user2_data = UserCreate(name="User 2", phone="2222222222", is_active=True)
         user1 = UserService.register_user(test_db, user1_data)
         user2 = UserService.register_user(test_db, user2_data)
         
@@ -232,7 +232,7 @@ class TestAuthMiddlewareIntegration:
         # Create inactive user
         user_data = UserCreate(
             name="Inactive User",
-            phone=1234567890,
+            phone="1234567890",
             is_active=False
         )
         inactive_user = UserService.register_user(test_db, user_data)
@@ -298,7 +298,7 @@ class TestAuthMiddlewareIntegration:
         # Create active user
         user_data = UserCreate(
             name="Test User",
-            phone=1234567890,
+            phone="1234567890",
             is_active=True
         )
         user = UserService.register_user(test_db, user_data)

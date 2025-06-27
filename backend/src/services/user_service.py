@@ -3,11 +3,13 @@ from src.models.user import User
 from src.schemas.user import UserCreate, UserUpdate, UserLogin, UserSession
 from src.core.config import settings
 from src.utils.cache import Cache
+from fastapi import HTTPException, status
 
 from typing import List, Optional
 import secrets
 import datetime
 import json
+import re
 
 class UserService:
     """
@@ -17,11 +19,42 @@ class UserService:
     """
     
     @staticmethod
+    def validate_phone_number(phone: str) -> bool:
+        """
+        Validate phone number format
+        Accepts phone numbers with 10-15 digits, optionally with country code
+        """
+        # Remove any non-digit characters except + at the beginning
+        cleaned_phone = re.sub(r'[^\d+]', '', phone)
+        
+        # Check if it starts with + (international format)
+        if cleaned_phone.startswith('+'):
+            # Remove the + and check if remaining are all digits
+            digits_only = cleaned_phone[1:]
+            if not digits_only.isdigit():
+                return False
+            # International numbers should be 7-15 digits after country code
+            return 7 <= len(digits_only) <= 15
+        else:
+            # Domestic format - should be all digits
+            if not cleaned_phone.isdigit():
+                return False
+            # Domestic numbers should be 10-15 digits
+            return 10 <= len(cleaned_phone) <= 15
+    
+    @staticmethod
     def register_user(db: Session, user: UserCreate) -> User:
         """
         User registration function
         Creates a new user in the database
         """
+        # Validate phone number format
+        if not UserService.validate_phone_number(user.phone):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Invalid phone number format. Phone number should contain 10-15 digits and may include a country code."
+            )
+        
         # Check if user already exists
         existing_user = UserService.get_user_by_phone(db, user.phone)
         if existing_user:
@@ -31,6 +64,8 @@ class UserService:
         db_user = User(
             name=user.name, 
             phone=user.phone,
+            dob=user.dob,
+            gender=user.gender,
             is_active=user.is_active
         )
         db.add(db_user)
@@ -180,7 +215,7 @@ class UserService:
         return db.query(User).filter(User.id == user_id).first()
     
     @staticmethod
-    def get_user_by_phone(db: Session, phone: int) -> Optional[User]:
+    def get_user_by_phone(db: Session, phone: str) -> Optional[User]:
         """Get user by phone number"""
         return db.query(User).filter(User.phone == phone).first()
     

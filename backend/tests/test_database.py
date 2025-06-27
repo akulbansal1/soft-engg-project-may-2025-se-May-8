@@ -39,7 +39,7 @@ class TestDatabaseConnectivity:
         inspector = inspect(engine)
         columns = [col['name'] for col in inspector.get_columns('users')]
         
-        expected_columns = ['id', 'name', 'phone', 'is_active', 'created_at']
+        expected_columns = ['id', 'name', 'phone', 'dob', 'gender', 'is_active', 'created_at']
         for column in expected_columns:
             assert column in columns, f"Column {column} should exist in users table"
 
@@ -116,6 +116,8 @@ class TestModelDefinitions:
         assert hasattr(user, 'id')
         assert hasattr(user, 'name')
         assert hasattr(user, 'phone')
+        assert hasattr(user, 'dob')
+        assert hasattr(user, 'gender')
         assert hasattr(user, 'is_active')
         assert hasattr(user, 'created_at')
         
@@ -139,7 +141,8 @@ class TestModelDefinitions:
 
     def test_model_string_representations(self, client):
         """Test that models have proper string representations"""
-        user = User(name="Test User", phone="+1234567890")
+        from datetime import date
+        user = User(name="Test User", phone="1234567890", dob=date(1990, 1, 15), gender="Other")
         user_str = str(user)
         assert "Test User" in user_str
         

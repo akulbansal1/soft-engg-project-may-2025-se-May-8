@@ -20,7 +20,7 @@ class TestPasskeyRegistrationAPI:
     def test_create_registration_challenge_new_user(self, client, test_db):
         """Test creating registration challenge for new user"""
         request_data = {
-            "user_phone": 1234567890,
+            "user_phone": "1234567890",
             "user_name": "Test User"
         }
         
@@ -46,11 +46,11 @@ class TestPasskeyRegistrationAPI:
     def test_create_registration_challenge_existing_inactive_user(self, client, test_db):
         """Test creating registration challenge for existing inactive user"""
         # Create inactive user first
-        user_data = UserCreate(name="Test User", phone=1234567890, is_active=False)
+        user_data = UserCreate(name="Test User", phone="1234567890", is_active=False)
         UserService.register_user(test_db, user_data)
         
         request_data = {
-            "user_phone": 1234567890,
+            "user_phone": "1234567890",
             "user_name": "Test User"
         }
         
@@ -71,11 +71,11 @@ class TestPasskeyRegistrationAPI:
     def test_create_registration_challenge_existing_active_user(self, client, test_db):
         """Test creating registration challenge fails for existing active user"""
         # Create active user first
-        user_data = UserCreate(name="Test User", phone=1234567890, is_active=True)
+        user_data = UserCreate(name="Test User", phone="1234567890", is_active=True)
         UserService.register_user(test_db, user_data)
         
         request_data = {
-            "user_phone": 1234567890,
+            "user_phone": "1234567890",
             "user_name": "Test User"
         }
         
@@ -84,14 +84,82 @@ class TestPasskeyRegistrationAPI:
         # Should fail because user is already active
         assert response.status_code >= 400
 
+    def test_create_registration_challenge_with_optional_fields(self, client):
+        """Test creating registration challenge with optional DOB and gender fields"""
+        request_data = {
+            "user_phone": "9999999999",
+            "user_name": "Alice Cooper",
+            "user_dob": "1990-03-15",
+            "user_gender": "Female"
+        }
+        
+        with patch('src.services.passkey_service.PasskeyService.create_signup_challenge') as mock_challenge:
+            # Mock WebAuthn challenge response as dictionary
+            mock_challenge_data = {
+                "challenge": base64.b64encode(b"test_challenge").decode(),
+                "user": {"id": "test_user_id", "name": "Alice Cooper"},
+                "rp": {"id": "localhost", "name": "Test RP"},
+                "pubKeyCredParams": [{"type": "public-key", "alg": -7}],
+                "timeout": 60000,
+                "attestation": "direct"
+            }
+            mock_challenge.return_value = mock_challenge_data
+            
+            response = client.post("/api/v1/auth/passkey/register/challenge", json=request_data)
+            
+            assert response.status_code == 200
+            assert "challenge" in response.json()
+            
+            # Verify the service was called with the optional fields
+            from datetime import date
+            mock_challenge.assert_called_once()
+            call_args = mock_challenge.call_args
+            # Check positional arguments
+            assert call_args[0][1] == "9999999999"  # user_phone
+            assert call_args[0][2] == "Alice Cooper"  # user_name
+            assert call_args[0][3] == date(1990, 3, 15)  # user_dob
+            assert call_args[0][4] == "Female"  # user_gender
+
+    def test_create_registration_challenge_minimal_fields_only(self, client):
+        """Test creating registration challenge with only required fields"""
+        request_data = {
+            "user_phone": "8888888888",
+            "user_name": "Bob Builder"
+        }
+        
+        with patch('src.services.passkey_service.PasskeyService.create_signup_challenge') as mock_challenge:
+            mock_challenge_data = {
+                "challenge": base64.b64encode(b"test_challenge").decode(),
+                "user": {"id": "test_user_id", "name": "Bob Builder"},
+                "rp": {"id": "localhost", "name": "Test RP"},
+                "pubKeyCredParams": [{"type": "public-key", "alg": -7}],
+                "timeout": 60000,
+                "attestation": "direct"
+            }
+            mock_challenge.return_value = mock_challenge_data
+            
+            response = client.post("/api/v1/auth/passkey/register/challenge", json=request_data)
+            
+            assert response.status_code == 200
+            assert "challenge" in response.json()
+            
+            # Verify the service was called with None for optional fields
+            mock_challenge.assert_called_once()
+            call_args = mock_challenge.call_args
+            # Check positional arguments
+            assert call_args[0][1] == "8888888888"  # user_phone
+            assert call_args[0][2] == "Bob Builder"  # user_name
+            assert call_args[0][3] is None  # user_dob
+            assert call_args[0][4] is None  # user_gender
+
     def test_verify_registration_response_success(self, client, test_db):
         """Test successful registration verification"""
         # Create inactive user first
-        user_data = UserCreate(name="Test User", phone=1234567890, is_active=False)
+        user_data = UserCreate(name="Test User", phone="1234567890", is_active=False)
         user = UserService.register_user(test_db, user_data)
 
         request_data = {
-            "user_phone": 1234567890,
+            "user_phone": "1234567890",
             "user_name": "Test User"
         }
 
@@ -141,7 +209,7 @@ class TestPasskeyRegistrationAPI:
     def test_verify_registration_response_user_not_found(self, client, test_db):
         """Test registration verification fails for non-existent user"""
         request_data = {
-            "user_phone": 9999999999,
+            "user_phone": "9999999999",
             "user_name": "Non-existent User"
         }
 
@@ -172,7 +240,7 @@ class TestPasskeyLoginAPI:
     def setup_user_with_credential(self, test_db):
         """Helper to create user with passkey credential"""
         # Create active user
-        user_data = UserCreate(name="Test User", phone=1234567890, is_active=True)
+        user_data = UserCreate(name="Test User", phone="1234567890", is_active=True)
         user = UserService.register_user(test_db, user_data)
         
         # Create credential
@@ -303,7 +371,7 @@ class TestAuthenticatedEndpoints:
 
     def create_authenticated_session(self, client, test_db):
         """Helper to create an authenticated session"""
-        user_data = UserCreate(name="Test User", phone=1234567890, is_active=True)
+        user_data = UserCreate(name="Test User", phone="1234567890", is_active=True)
         user = UserService.register_user(test_db, user_data)
         
         session_data = UserService.issue_session(user.id)
@@ -398,7 +466,7 @@ class TestUsersAPI:
 
     def create_authenticated_session(self, client, test_db):
         """Helper to create an authenticated session"""
-        user_data = UserCreate(name="Test User", phone=1234567890, is_active=True)
+        user_data = UserCreate(name="Test User", phone="1234567890", is_active=True)
         user = UserService.register_user(test_db, user_data)
         
         session_data = UserService.issue_session(user.id)
@@ -415,7 +483,7 @@ class TestUsersAPI:
 
         # Create additional users
         for i in range(3):
-            user_data = UserCreate(name=f"User {i}", phone=1234567890 + i + 1, is_active=True)
+            user_data = UserCreate(name=f"User {i}", phone=f"123456789{i+1}", is_active=True)
             UserService.register_user(test_db, user_data)
 
         response = client.get("/api/v1/users/")
@@ -451,7 +519,7 @@ class TestUsersAPI:
         user, session_token = self.create_authenticated_session(client, test_db)
 
         # Create another user
-        other_user_data = UserCreate(name="Other User", phone=9876543210, is_active=True)
+        other_user_data = UserCreate(name="Other User", phone="9876543210", is_active=True)
         other_user = UserService.register_user(test_db, other_user_data)
 
         response = client.get(f"/api/v1/users/{other_user.id}")
@@ -478,7 +546,7 @@ class TestAPIErrorHandling:
     def test_missing_required_fields(self, client):
         """Test handling of missing required fields"""
         incomplete_data = {
-            "user_phone": 1234567890
+            "user_phone": "1234567890"
             # Missing user_name
         }
 
@@ -508,7 +576,7 @@ class TestAPIErrorHandling:
             mock_challenge.return_value = {"challenge": "simple_challenge"}
             
             long_name_data = {
-                "user_phone": 1234567890,
+                "user_phone": "1234567890",
                 "user_name": "A" * 1000  # Reasonable length
             }
             
@@ -522,7 +590,7 @@ class TestAPIErrorHandling:
         import concurrent.futures
 
         request_data = {
-            "user_phone": 1234567890,
+            "user_phone": "1234567890",
             "user_name": "Test User"
         }
 

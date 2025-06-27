@@ -29,9 +29,12 @@ class TestUserService:
 
     def test_register_user_success(self, test_db):
         """Test successful user registration"""
+        from datetime import date
         user_data = UserCreate(
             name="Test User",
-            phone=1234567890,
+            phone="1234567890",
+            dob=date(1995, 6, 15),
+            gender="Female",
             is_active=True
         )
         
@@ -39,7 +42,9 @@ class TestUserService:
         
         assert user.id is not None
         assert user.name == "Test User"
-        assert user.phone == 1234567890
+        assert user.phone == "1234567890"
+        assert user.dob == date(1995, 6, 15)
+        assert user.gender == "Female"
         assert user.is_active is True
         assert user.created_at is not None
 
@@ -47,7 +52,7 @@ class TestUserService:
         """Test registration fails with duplicate phone number"""
         user_data = UserCreate(
             name="Test User",
-            phone=1234567890,
+            phone="1234567890",
             is_active=True
         )
         
@@ -58,27 +63,72 @@ class TestUserService:
         with pytest.raises(ValueError, match="User with this phone number already exists"):
             UserService.register_user(test_db, user_data)
 
+    def test_register_user_with_optional_fields(self, test_db):
+        """Test user registration with optional DOB and gender fields"""
+        # Test with no optional fields
+        user_data_no_optional = UserCreate(
+            name="User Without Optional Fields",
+            phone="1111111111",
+            is_active=True
+        )
+        
+        user_no_optional = UserService.register_user(test_db, user_data_no_optional)
+        
+        assert user_no_optional.id is not None
+        assert user_no_optional.name == "User Without Optional Fields"
+        assert user_no_optional.phone == "1111111111"
+        assert user_no_optional.dob is None
+        assert user_no_optional.gender is None
+        assert user_no_optional.is_active is True
+
+        # Test with only DOB
+        from datetime import date
+        user_data_with_dob = UserCreate(
+            name="User With DOB",
+            phone="2222222222",
+            dob=date(1985, 12, 25),
+            is_active=True
+        )
+        
+        user_with_dob = UserService.register_user(test_db, user_data_with_dob)
+        
+        assert user_with_dob.dob == date(1985, 12, 25)
+        assert user_with_dob.gender is None
+
+        # Test with only gender
+        user_data_with_gender = UserCreate(
+            name="User With Gender",
+            phone="3333333333",
+            gender="Non-binary",
+            is_active=True
+        )
+        
+        user_with_gender = UserService.register_user(test_db, user_data_with_gender)
+        
+        assert user_with_gender.dob is None
+        assert user_with_gender.gender == "Non-binary"
+
     def test_login_user_success(self, test_db):
         """Test successful user login"""
         # Create a user
         user_data = UserCreate(
             name="Test User",
-            phone=1234567890,
+            phone="1234567890",
             is_active=True
         )
         created_user = UserService.register_user(test_db, user_data)
         
         # Login user
-        login_data = UserLogin(phone=1234567890)
+        login_data = UserLogin(phone="1234567890")
         logged_in_user = UserService.login_user(test_db, login_data)
         
         assert logged_in_user is not None
         assert logged_in_user.id == created_user.id
-        assert logged_in_user.phone == 1234567890
+        assert logged_in_user.phone == "1234567890"
 
     def test_login_user_not_found(self, test_db):
         """Test login fails for non-existent user"""
-        login_data = UserLogin(phone=9999999999)
+        login_data = UserLogin(phone="9999999999")
         user = UserService.login_user(test_db, login_data)
         
         assert user is None
@@ -88,13 +138,13 @@ class TestUserService:
         # Create inactive user
         user_data = UserCreate(
             name="Test User",
-            phone=1234567890,
+            phone="1234567890",
             is_active=False
         )
         UserService.register_user(test_db, user_data)
         
         # Try to login
-        login_data = UserLogin(phone=1234567890)
+        login_data = UserLogin(phone="1234567890")
         user = UserService.login_user(test_db, login_data)
         
         assert user is None
@@ -153,7 +203,7 @@ class TestUserService:
         # Create a user
         user_data = UserCreate(
             name="Test User",
-            phone=1234567890,
+            phone="1234567890",
             is_active=True
         )
         created_user = UserService.register_user(test_db, user_data)
@@ -206,7 +256,7 @@ class TestUserService:
         # Create inactive user
         user_data = UserCreate(
             name="Test User",
-            phone=1234567890,
+            phone="1234567890",
             is_active=False
         )
         created_user = UserService.register_user(test_db, user_data)
@@ -227,27 +277,27 @@ class TestUserService:
         """Test getting user by phone number"""
         user_data = UserCreate(
             name="Test User",
-            phone=1234567890,
+            phone="1234567890",
             is_active=True
         )
         created_user = UserService.register_user(test_db, user_data)
         
-        found_user = UserService.get_user_by_phone(test_db, 1234567890)
+        found_user = UserService.get_user_by_phone(test_db, "1234567890")
         
         assert found_user is not None
         assert found_user.id == created_user.id
-        assert found_user.phone == 1234567890
+        assert found_user.phone == "1234567890"
 
     def test_get_user_by_phone_not_found(self, test_db):
         """Test getting user by non-existent phone number"""
-        user = UserService.get_user_by_phone(test_db, 9999999999)
+        user = UserService.get_user_by_phone(test_db, "9999999999")
         assert user is None
 
     def test_get_user_by_id_success(self, test_db):
         """Test getting user by ID"""
         user_data = UserCreate(
             name="Test User",
-            phone=1234567890,
+            phone="1234567890",
             is_active=True
         )
         created_user = UserService.register_user(test_db, user_data)
@@ -256,7 +306,7 @@ class TestUserService:
         
         assert found_user is not None
         assert found_user.id == created_user.id
-        assert found_user.phone == 1234567890
+        assert found_user.phone == "1234567890"
 
     def test_get_user_by_id_not_found(self, test_db):
         """Test getting user by non-existent ID"""
@@ -269,7 +319,7 @@ class TestPasskeyService:
 
     def test_create_signup_challenge_new_user(self, test_db):
         """Test creating signup challenge for new user"""
-        user_phone = 1234567890
+        user_phone = "9876543210"
         user_name = "Test User"
         
         with patch('src.services.passkey_service.generate_registration_options') as mock_gen_options:
@@ -297,7 +347,7 @@ class TestPasskeyService:
         # Create inactive user
         user_data = UserCreate(
             name="Test User",
-            phone=1234567890,
+            phone="8888888888",
             is_active=False
         )
         created_user = UserService.register_user(test_db, user_data)
@@ -307,7 +357,7 @@ class TestPasskeyService:
                 mock_challenge_data = MagicMock()
                 mock_gen_options.return_value = mock_challenge_data
                 
-                result = PasskeyService.create_signup_challenge(test_db, 1234567890, "Test User")
+                result = PasskeyService.create_signup_challenge(test_db, "8888888888", "Test User")
                 
                 # Should use existing user
                 assert result == mock_challenge_data
@@ -318,24 +368,82 @@ class TestPasskeyService:
         # Create active user
         user_data = UserCreate(
             name="Test User",
-            phone=1234567890,
+            phone="7777777777",
             is_active=True
         )
         UserService.register_user(test_db, user_data)
         
         from fastapi import HTTPException
         with pytest.raises(HTTPException) as exc_info:
-            PasskeyService.create_signup_challenge(test_db, 1234567890, "Test User")
+            PasskeyService.create_signup_challenge(test_db, "7777777777", "Test User")
         
         assert exc_info.value.status_code == 400
         assert "already exists and is active" in str(exc_info.value.detail)
+
+    def test_create_signup_challenge_with_optional_fields(self, test_db):
+        """Test creating signup challenge for new user with optional DOB and gender fields"""
+        from datetime import date
+        user_phone = "5555555555"
+        user_name = "Jane Doe"
+        user_dob = date(1992, 5, 20)
+        user_gender = "Female"
+        
+        with patch('src.services.passkey_service.generate_registration_options') as mock_gen_options:
+            with patch('src.utils.cache.Cache.set') as mock_cache_set:
+                mock_challenge_data = MagicMock()
+                mock_challenge_data.challenge = "test_challenge_data"
+                mock_gen_options.return_value = mock_challenge_data
+                
+                result = PasskeyService.create_signup_challenge(
+                    test_db, user_phone, user_name, user_dob, user_gender
+                )
+                
+                # Verify user was created with optional fields
+                user = UserService.get_user_by_phone(test_db, user_phone)
+                assert user is not None
+                assert user.name == user_name
+                assert user.phone == user_phone
+                assert user.dob == user_dob
+                assert user.gender == user_gender
+                assert user.is_active is False  # Should be inactive until passkey registration
+                
+                # Verify challenge generation
+                mock_gen_options.assert_called_once()
+                mock_cache_set.assert_called_once()
+                assert result == mock_challenge_data
+
+    def test_create_signup_challenge_with_partial_optional_fields(self, test_db):
+        """Test creating signup challenge with only some optional fields"""
+        from datetime import date
+        user_phone = "6666666666"
+        user_name = "John Smith"
+        user_dob = date(1985, 8, 15)
+        
+        with patch('src.services.passkey_service.generate_registration_options') as mock_gen_options:
+            with patch('src.utils.cache.Cache.set'):
+                mock_challenge_data = MagicMock()
+                mock_gen_options.return_value = mock_challenge_data
+                
+                # Test with only DOB, no gender
+                result = PasskeyService.create_signup_challenge(
+                    test_db, user_phone, user_name, user_dob, None
+                )
+                
+                # Verify user was created with partial optional fields
+                user = UserService.get_user_by_phone(test_db, user_phone)
+                assert user is not None
+                assert user.name == user_name
+                assert user.phone == user_phone
+                assert user.dob == user_dob
+                assert user.gender is None
+                assert user.is_active is False
 
     def test_create_login_challenge_success(self, test_db):
         """Test creating login challenge for existing credential"""
         # Create user and credential
         user_data = UserCreate(
             name="Test User",
-            phone=1234567890,
+            phone="5555555555",
             is_active=True
         )
         user = UserService.register_user(test_db, user_data)
@@ -374,7 +482,7 @@ class TestPasskeyService:
         # Create user first
         user_data = UserCreate(
             name="Test User",
-            phone=1234567890,
+            phone="1234567890",
             is_active=True
         )
         user = UserService.register_user(test_db, user_data)
@@ -399,7 +507,7 @@ class TestPasskeyService:
         # Create user first
         user_data = UserCreate(
             name="Test User",
-            phone=1234567890,
+            phone="1234567890",
             is_active=True
         )
         user = UserService.register_user(test_db, user_data)
@@ -427,7 +535,7 @@ class TestPasskeyService:
         # Create user
         user_data = UserCreate(
             name="Test User",
-            phone=1234567890,
+            phone="1234567890",
             is_active=True
         )
         user = UserService.register_user(test_db, user_data)
@@ -454,7 +562,7 @@ class TestPasskeyService:
         # Create user and credential
         user_data = UserCreate(
             name="Test User",
-            phone=1234567890,
+            phone="1234567890",
             is_active=True
         )
         user = UserService.register_user(test_db, user_data)
@@ -484,7 +592,7 @@ class TestPasskeyService:
         # Create user
         user_data = UserCreate(
             name="Test User",
-            phone=1234567890,
+            phone="1234567890",
             is_active=False
         )
         user = UserService.register_user(test_db, user_data)
@@ -506,7 +614,7 @@ class TestPasskeyService:
                     client_data_json="test_client_data"
                 )
                 
-                result = PasskeyService.verify_signup_response(test_db, 1234567890, response_data)
+                result = PasskeyService.verify_signup_response(test_db, "1234567890", response_data)
                 
                 assert result.user_id == user.id
                 assert result.credential_id == "test_credential_id"
@@ -529,7 +637,7 @@ class TestPasskeyService:
         
         from fastapi import HTTPException
         with pytest.raises(HTTPException) as exc_info:
-            PasskeyService.verify_signup_response(test_db, 9999999999, response_data)
+            PasskeyService.verify_signup_response(test_db, "9999999999", response_data)
         
         assert exc_info.value.status_code == 404
         assert "User not found" in str(exc_info.value.detail)
@@ -539,7 +647,7 @@ class TestPasskeyService:
         # Create user
         user_data = UserCreate(
             name="Test User",
-            phone=1234567890,
+            phone="1234567890",
             is_active=False
         )
         UserService.register_user(test_db, user_data)
@@ -555,7 +663,7 @@ class TestPasskeyService:
         with patch('src.utils.cache.Cache.get', return_value=None):
             from fastapi import HTTPException
             with pytest.raises(HTTPException) as exc_info:
-                PasskeyService.verify_signup_response(test_db, 1234567890, response_data)
+                PasskeyService.verify_signup_response(test_db, "1234567890", response_data)
             
             assert exc_info.value.status_code == 400
             assert "Registration challenge expired" in str(exc_info.value.detail)
@@ -566,7 +674,7 @@ class TestPasskeyService:
         # Create user and credential
         user_data = UserCreate(
             name="Test User",
-            phone=1234567890,
+            phone="1234567890",
             is_active=True
         )
         user = UserService.register_user(test_db, user_data)
@@ -626,7 +734,7 @@ class TestPasskeyService:
         # Create user and credential
         user_data = UserCreate(
             name="Test User",
-            phone=1234567890,
+            phone="1234567890",
             is_active=True
         )
         user = UserService.register_user(test_db, user_data)

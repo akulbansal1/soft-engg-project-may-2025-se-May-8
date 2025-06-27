@@ -2,6 +2,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException, status
 from typing import Optional, List, Dict, Any
+from datetime import date
 from webauthn import generate_registration_options, verify_registration_response, generate_authentication_options, verify_authentication_response
 from webauthn.helpers.structs import AuthenticatorSelectionCriteria, UserVerificationRequirement
 import json
@@ -28,7 +29,7 @@ class PasskeyService:
 
 
     @staticmethod
-    def create_signup_challenge(db: Session, user_phone: int, user_name: str) -> Dict[str, Any]:
+    def create_signup_challenge(db: Session, user_phone: str, user_name: str, user_dob: Optional[date] = None, user_gender: Optional[str] = None) -> Dict[str, Any]:
         """
         Create a WebAuthn registration challenge for a user
         """
@@ -41,6 +42,8 @@ class PasskeyService:
             user_data = UserCreate(
                 name=user_name,
                 phone=user_phone,
+                dob=user_dob,
+                gender=user_gender,
                 is_active=False
             )
             user_id = UserService.register_user(db, user_data).id
@@ -54,8 +57,8 @@ class PasskeyService:
         challenge_data = generate_registration_options(
             rp_id= settings.FRONTEND_RP_ID,  # Replace with RP ID
             rp_name=settings.PROJECT_NAME,  # Replace with RP name  
-            user_id=bytes(user_id),  # need to convert into bytes
-            user_name=str(user_phone),  
+            user_id=str(user_id).encode('utf-8'),  # Convert user_id to bytes properly
+            user_name=user_phone,  
             user_display_name=user_name,
             attestation="none",
             authenticator_selection=AuthenticatorSelectionCriteria(
@@ -74,7 +77,7 @@ class PasskeyService:
     @staticmethod
     def verify_signup_response(
         db: Session,
-        user_phone: int,
+        user_phone: str,
         response_data: SignupResponse
     ) -> PasskeyVerificationResult:
         """
