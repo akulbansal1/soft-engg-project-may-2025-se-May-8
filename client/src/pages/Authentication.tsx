@@ -1,4 +1,4 @@
-import React from "react";
+import React, {useState} from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
+import { registerCredential } from "../utils/webauthn"; // Assuming you have an auth utility for handling credentials
 
 const AuthenticationPage: React.FC = () => {
   // Your existing state and handlers would go here
@@ -41,17 +42,73 @@ const AuthenticationPage: React.FC = () => {
     gender: "",
   });
   // combine first, middle and last an
-  const [loading, setLoading] = React.useState(false);
-  const [msg, setMsg] = React.useState("");
+  const [loading, setLoading] = useState(false);
+  const [msg, setMsg] = useState("");
 
   // Your existing handlers would go here
-  const handleSignIn = (e: React.FormEvent) => {
+  const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const phoneNumber = signInPhone.trim();
+    try {
+      const cred = await registerCredential(phoneNumber);
+      if(cred && 'rawId' in cred) {
+        const credId = btoa(String.fromCharCode(...new Uint8Array((cred as PublicKeyCredential).rawId)));
+        console.log("Credential ID:", credId);
+        setMsg("✅ Signed in successfully!");
+
+        setTimeout(()=>{
+          navigate('/home');
+        },1500);
+
+        document.getElementById("authentication-msg")?.style.setProperty("color", "green");
+        
+      } else {
+
+        document.getElementById("authentication-msg")?.style.setProperty("color", "red");
+        setMsg("❌ SignIn failed: Invalid credential returned.");
+        
+      }
+    } catch (err: any) {
+
+      document.getElementById("authentication-msg")?.style.setProperty("color", "red");
+      setMsg("❌ SignIn failed: " + err.message);
+
+    }
     // Handle sign in logic
   };
 
-  const handleSignUp = (e: React.FormEvent) => {
+  const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const phoneNumber = signInPhone.trim();
+    try {
+      const cred = await registerCredential(phoneNumber);
+      if(cred && 'rawId' in cred) {
+        const credId = btoa(String.fromCharCode(...new Uint8Array((cred as PublicKeyCredential).rawId)));
+        console.log("Credential ID:", credId);
+
+        document.getElementById("authentication-msg")?.style.setProperty("color", "green");
+        setMsg("✅ Registered successfully!");
+        
+        setTimeout(()=>{
+          navigate('/home');
+        },1500);
+        
+        
+
+      } else {
+
+        document.getElementById("authentication-msg")?.style.setProperty("color", "red");
+        setMsg("❌ Registration failed: Invalid credential returned.");
+
+      }
+
+    } catch (err: any) {
+
+      document.getElementById("authentication-msg")?.style.setProperty("color", "red");
+      setMsg("❌ Registration failed: " + err.message);
+    }
     // Handle sign up logic
   };
 
@@ -248,10 +305,9 @@ const AuthenticationPage: React.FC = () => {
                     />
                   </div>
                   <Button
-                    type="button"
+                    type="submit"
                     variant="outline"
                     className="w-full h-12 rounded-xl"
-                    onClick={() => navigate("/face-id")}
                   >
                     <ScanFace className="w-4 h-4 mr-2" />
                     Login with Face ID
@@ -354,16 +410,17 @@ const AuthenticationPage: React.FC = () => {
                     {loading ? "Creating Account..." : "Create Account"}
                   </Button>
 
-                  {msg && (
-                    <div className="p-3 rounded-xl bg-destructive/10 border border-destructive/20">
-                      <p className="text-center text-destructive text-sm">
-                        {msg}
-                      </p>
-                    </div>
-                  )}
+                  
                 </form>
               </TabsContent>
             </Tabs>
+            {msg && (
+                    <div className="p-3 rounded-xl">
+                      <p id="authentication-msg" className="text-center text-destructive text-sm">
+                        {msg}
+                      </p>
+                    </div>
+            )}
           </div>
         </div>
       </div>
