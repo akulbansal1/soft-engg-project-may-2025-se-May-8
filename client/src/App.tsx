@@ -8,7 +8,6 @@ import FaceIDPage from "./pages/FaceIDPage";
 import HomePage from "./pages/HomePage";
 import EmergencyContactsPage from "./pages/EmergencyContactsPage";
 import AppointmentsPage from "./pages/AppointmentsPage";
-import HealthPage from "./pages/HealthPage";
 import MedicinesPage from "./pages/MedicinesPage";
 import DataVault from "./pages/DataVault";
 import Settings from "./pages/Settings";
@@ -58,7 +57,6 @@ const App: React.FC = () => {
               element={<EmergencyContactsPage />}
             />
             <Route path="/appointments" element={<AppointmentsPage />} />
-            <Route path="/health" element={<HealthPage />} />
             <Route path="/medicines" element={<MedicinesPage />} />
             <Route path="/data-vault" element={<DataVault />} />
             <Route path="/settings" element={<Settings />} />
