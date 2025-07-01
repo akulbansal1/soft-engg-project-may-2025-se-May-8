@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Response, Cookie
+from fastapi import APIRouter, Depends, HTTPException, status, Response, Cookie, Path
 from sqlalchemy.orm import Session
 from typing import List, Dict, Any, Optional
 
@@ -23,18 +23,41 @@ from src.schemas.sms import (
 from src.core.config import settings
 from src.core.auth_middleware import RequireOwnership, RequireAuth
 
-router = APIRouter(prefix="/auth", tags=["🔐 Authentication"])
+router = APIRouter(
+    prefix="/auth", 
+    tags=["🔐 Authentication"],
+    responses={
+        400: {"description": "Bad Request - Invalid input data"},
+        401: {"description": "Unauthorized - Authentication required"},
+        403: {"description": "Forbidden - Insufficient permissions"},
+        500: {"description": "Internal Server Error"}
+    }
+)
 
 # SMS Verification Endpoints
 
-@router.post("/sms/send", response_model=SMSVerificationResponse)
+@router.post(
+    "/sms/send", 
+    response_model=SMSVerificationResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Send SMS verification code",
+    description="Send a verification code to the provided phone number. This is step 1 of the SMS verification process.",
+    responses={
+        200: {"description": "Verification code sent successfully"},
+        400: {"description": "Invalid phone number format"},
+        500: {"description": "Failed to send verification code"}
+    }
+)
 def send_sms_verification(
     request: SMSVerificationRequest,
     db: Session = Depends(get_db)
 ):
     """
-    Send SMS verification code to phone number
-    Step 1 of SMS verification process
+    **Send SMS verification code to phone number**
+    
+    - **phone**: Valid phone number (international format recommended: +1234567890)
+    - Returns verification response with success status and expiry time
+    - Code expires in 10 minutes
     """
     try:
         from src.services.sms_service import sms_service
@@ -53,14 +76,28 @@ def send_sms_verification(
             detail=f"Failed to send verification code: {str(e)}"
         )
 
-@router.post("/sms/verify", response_model=SMSVerificationStatusResponse)
+@router.post(
+    "/sms/verify", 
+    response_model=SMSVerificationStatusResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Verify SMS code",
+    description="Verify the SMS code received on the phone number. This is step 2 of the SMS verification process.",
+    responses={
+        200: {"description": "Code verification result"},
+        400: {"description": "Invalid code or phone number"},
+        500: {"description": "Failed to verify code"}
+    }
+)
 def verify_sms_code(
     request: SMSVerificationCodeRequest,
     db: Session = Depends(get_db)
 ):
     """
-    Verify SMS code for phone number
-    Step 2 of SMS verification process
+    **Verify SMS code for phone number**
+    
+    - **phone**: Phone number that received the verification code
+    - **code**: 4-8 digit verification code from SMS
+    - Returns verification status and expiry information
     """
     try:
         from src.services.sms_service import sms_service
@@ -79,13 +116,26 @@ def verify_sms_code(
             detail=f"Failed to verify code: {str(e)}"
         )
 
-@router.get("/sms/status/{phone}", response_model=SMSVerificationStatusResponse)
+@router.get(
+    "/sms/status/{phone}", 
+    response_model=SMSVerificationStatusResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Get SMS verification status",
+    description="Check the current verification status for a phone number.",
+    responses={
+        200: {"description": "Verification status retrieved"},
+        500: {"description": "Failed to get verification status"}
+    }
+)
 def get_sms_verification_status(
-    phone: str,
+    phone: str = Path(..., description="Phone number to check verification status for"),
     db: Session = Depends(get_db)
 ):
     """
-    Get SMS verification status for a phone number
+    **Get SMS verification status for a phone number**
+    
+    - **phone**: Phone number to check status for
+    - Returns current verification status and expiry time
     """
     try:
         from src.services.sms_service import sms_service
@@ -104,14 +154,30 @@ def get_sms_verification_status(
 
 # Passkey Registration and Login Endpoints
 
-@router.post("/passkey/register/challenge", response_model=Dict[str, Any])
+@router.post(
+    "/passkey/register/challenge", 
+    response_model=Dict[str, Any],
+    status_code=status.HTTP_200_OK,
+    summary="Create passkey registration challenge",
+    description="Generate a WebAuthn registration challenge for passkey setup. This is step 1 of passkey registration.",
+    responses={
+        200: {"description": "Registration challenge created successfully"},
+        400: {"description": "Invalid user data"},
+        500: {"description": "Failed to create challenge"}
+    }
+)
 def create_passkey_registration_challenge(
     request: PasskeyRegistrationRequest, 
     db: Session = Depends(get_db)
 ):
     """
-    Create WebAuthn registration challenge for passkey setup
-    Step 1 of passkey registration
+    **Create WebAuthn registration challenge for passkey setup**
+    
+    - **user_phone**: Phone number for the user account
+    - **user_name**: Display name for the user
+    - **user_dob**: Date of birth (optional)
+    - **user_gender**: Gender (optional)
+    - Returns WebAuthn challenge data for frontend
     """
     try:
         # Create registration challenge
@@ -132,7 +198,18 @@ def create_passkey_registration_challenge(
             detail=f"Failed to create challenge: {str(e)}"
         )
 
-@router.post("/passkey/register/verify", response_model=PasskeyVerificationResult)
+@router.post(
+    "/passkey/register/verify", 
+    response_model=PasskeyVerificationResult,
+    status_code=status.HTTP_200_OK,
+    summary="Verify passkey registration",
+    description="Verify WebAuthn registration response and create passkey credential. This is step 2 of passkey registration. Sets session cookie on success.",
+    responses={
+        200: {"description": "Registration verified successfully, user created"},
+        400: {"description": "Invalid registration response"},
+        500: {"description": "Failed to verify registration"}
+    }
+)
 def verify_passkey_registration(
     request: PasskeyRegistrationRequest,
     response_data: Dict[str, Any],
@@ -177,14 +254,28 @@ def verify_passkey_registration(
             detail=f"Failed to verify registration: {str(e)}"
         )
 
-@router.post("/passkey/login/challenge", response_model=Dict[str, Any])
+@router.post(
+    "/passkey/login/challenge", 
+    response_model=Dict[str, Any],
+    status_code=status.HTTP_200_OK,
+    summary="Create passkey login challenge",
+    description="Generate a WebAuthn authentication challenge for passkey login. This is step 1 of passkey authentication.",
+    responses={
+        200: {"description": "Login challenge created successfully"},
+        400: {"description": "Invalid credential ID"},
+        404: {"description": "Credential not found"},
+        500: {"description": "Failed to create challenge"}
+    }
+)
 def create_passkey_login_challenge(
     request: PasskeyLoginRequest,
     db: Session = Depends(get_db)
 ):
     """
-    Create WebAuthn authentication challenge for passkey login
-    Step 1 of passkey authentication
+    **Create WebAuthn authentication challenge for passkey login**
+    
+    - **credential_id**: Specific credential ID to use (optional)
+    - Returns WebAuthn challenge data for frontend authentication
     """
     try:
         challenge_data = PasskeyService.create_login_challenge(
@@ -199,7 +290,19 @@ def create_passkey_login_challenge(
             detail=f"Failed to create challenge: {str(e)}"
         )
 
-@router.post("/passkey/login/verify", response_model=PasskeyVerificationResult)
+@router.post(
+    "/passkey/login/verify", 
+    response_model=PasskeyVerificationResult,
+    status_code=status.HTTP_200_OK,
+    summary="Verify passkey login",
+    description="Verify WebAuthn authentication response for passkey login. This is step 2 of passkey authentication. Sets session cookie on success.",
+    responses={
+        200: {"description": "Login verified successfully, session created"},
+        400: {"description": "Invalid login response"},
+        401: {"description": "Authentication failed"},
+        500: {"description": "Failed to verify login"}
+    }
+)
 def verify_passkey_login(
     request: PasskeyLoginRequest,
     response_data: Dict[str, Any],
@@ -207,8 +310,13 @@ def verify_passkey_login(
     db: Session = Depends(get_db)
 ):
     """
-    Verify WebAuthn authentication response for passkey login
-    Step 2 of passkey authentication
+    **Verify WebAuthn authentication response for passkey login**
+    
+    - **request**: Same login request from challenge step
+    - **response_data**: WebAuthn assertion response from frontend
+    - Authenticates user with passkey
+    - Sets HTTP-only session cookie on success
+    - Returns user ID and session expiry
     """
     try:
         result = PasskeyService.verify_login_response(
@@ -244,10 +352,30 @@ def verify_passkey_login(
             detail=f"Failed to verify login: {str(e)}"
         )
 
-@router.get("/passkey/user/{user_id}", response_model=List[PasskeyCredentialResponse])
-def get_user_passkeys(user_id: int, current_user = Depends(RequireOwnership), db: Session = Depends(get_db)):
+@router.get(
+    "/passkey/user/{user_id}", 
+    response_model=List[PasskeyCredentialResponse],
+    status_code=status.HTTP_200_OK,
+    summary="Get user passkeys",
+    description="Retrieve all passkey credentials for a specific user. Requires authentication and ownership.",
+    responses={
+        200: {"description": "List of user's passkey credentials"},
+        401: {"description": "Not authenticated"},
+        403: {"description": "Not authorized to access this user's data"},
+        404: {"description": "User not found"}
+    }
+)
+def get_user_passkeys(
+    user_id: int = Path(..., description="User ID to get passkeys for"), 
+    current_user = Depends(RequireOwnership), 
+    db: Session = Depends(get_db)
+):
     """
-    Get all passkey credentials for a user
+    **Get all passkey credentials for a user**
+    
+    - **user_id**: ID of the user to get passkeys for
+    - Requires authentication and ownership verification
+    - Returns list of passkey credentials with metadata
     """
     try:
         credentials = PasskeyService.get_user_credentials(db, user_id)
@@ -258,16 +386,29 @@ def get_user_passkeys(user_id: int, current_user = Depends(RequireOwnership), db
             detail=f"Failed to get credentials: {str(e)}"
         )
 
-@router.post("/logout")
+@router.post(
+    "/logout",
+    status_code=status.HTTP_200_OK,
+    summary="User logout",
+    description="Logout user by invalidating session and clearing session cookie.",
+    responses={
+        200: {"description": "Logout successful", "content": {"application/json": {"example": {"message": "Logout successful"}}}},
+        400: {"description": "Failed to logout"},
+        401: {"description": "Not authenticated"}
+    }
+)
 def logout_user(
     response: Response,
-    session_token: Optional[str] = Cookie(None),
+    session_token: Optional[str] = Cookie(None, description="Session token from HTTP-only cookie"),
     current_user = Depends(RequireAuth),
     db: Session = Depends(get_db)
 ):
     """
-    User Logout
-    Invalidates user session and clears cookie
+    **User Logout**
+    
+    - Invalidates current user session
+    - Clears session cookie from browser
+    - Requires valid authentication
     """
     
     # For now, we'll just clear the cookie
@@ -289,10 +430,23 @@ def logout_user(
     
     return {"message": "Logout successful"}
 
-@router.get("/me", response_model=UserResponse)
+@router.get(
+    "/me", 
+    response_model=UserResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Get current user info",
+    description="Get information about the currently authenticated user.",
+    responses={
+        200: {"description": "Current user information"},
+        401: {"description": "Not authenticated"}
+    }
+)
 def get_current_user_info(current_user = Depends(RequireAuth)):
     """
-    Get current authenticated user information
+    **Get current authenticated user information**
+    
+    - Returns user profile data for authenticated user
+    - Includes user ID, name, phone, and account status
     """
     return UserResponse.model_validate(current_user)
 

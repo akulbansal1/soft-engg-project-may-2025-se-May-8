@@ -15,7 +15,14 @@ app = FastAPI(
     title=settings.PROJECT_NAME,
     description="FastAPI backend with PostgreSQL, Redis, and Celery",
     version="1.0.0",
-    openapi_url=f"{settings.API_V1_STR}/openapi.json"
+    openapi_url=f"{settings.API_V1_STR}/openapi.json",
+    contact={
+        "name": "SE Project Team",
+        "email": "team@example.com"
+    },
+    license_info={
+        "name": "MIT License"
+    }
 )
 
 # Add CORS middleware

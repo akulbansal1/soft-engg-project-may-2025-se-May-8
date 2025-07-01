@@ -1,14 +1,13 @@
 from fastapi import APIRouter
 from .users import router as users_router
 from .auth import router as auth_router
-
 from .emergency_contacts import router as emergency_contacts_router
 from .medicines import router as medicines_router
 from .documents import router as documents_router
 from .doctors import router as doctors_router
 from .appointments import router as appointments_router
 
-api_router = APIRouter(tags=["API"])
+api_router = APIRouter()
 
 # Include all API routers
 api_router.include_router(users_router)
