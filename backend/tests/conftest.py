@@ -9,6 +9,9 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+# Set test environment variables before importing the app
+os.environ["SMS_VERIFICATION_ENABLED"] = "False"
+
 from main import app
 from src.db.database import Base, get_db
 

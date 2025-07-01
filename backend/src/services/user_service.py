@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 from src.models.user import User
 from src.schemas.user import UserCreate, UserUpdate, UserLogin, UserSession
+from src.services.sms_service import sms_service
 from src.core.config import settings
 from src.utils.cache import Cache
 from fastapi import HTTPException, status
@@ -54,6 +55,14 @@ class UserService:
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail="Invalid phone number format. Phone number should contain 10-15 digits and may include a country code."
             )
+        
+        # Check SMS verification if required (only for new active users and if SMS verification is enabled)
+        if user.is_active and settings.SMS_VERIFICATION_ENABLED:
+            if not sms_service.is_phone_verified(user.phone):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Phone number must be verified via SMS before registration. Please verify your phone number first."
+                )
         
         # Check if user already exists
         existing_user = UserService.get_user_by_phone(db, user.phone)

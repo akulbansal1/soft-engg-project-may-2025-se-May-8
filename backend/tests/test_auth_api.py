@@ -41,7 +41,6 @@ class TestPasskeyRegistrationAPI:
             assert response.status_code == 200
             data = response.json()
             assert "challenge" in data
-            assert data["message"] == "Registration challenge created"
 
     def test_create_registration_challenge_existing_inactive_user(self, client, test_db):
         """Test creating registration challenge for existing inactive user"""

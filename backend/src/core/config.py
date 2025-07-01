@@ -46,7 +46,8 @@ class Settings:
     FRONTEND_RP_ID = os.getenv("FRONTEND_RP_ID", "localhost:3000")
     FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "http://localhost:3000")
 
-    CHALLENGE_TIMEOUT = int(timedelta(minutes=5).total_seconds() * 1000000)  # 5 minutes in microseconds
+    # Session and cache settings
+    CHALLENGE_TIMEOUT = int(timedelta(minutes=5).total_seconds())  # 5 minutes in seconds
     CHALLENGE_CACHE_EXPIRY = int(timedelta(minutes=10).total_seconds())  # 10 minutes in seconds
 
     SESSION_TOKEN_EXPIRY = timedelta(hours=24*7) # 7 days
@@ -54,6 +55,17 @@ class Settings:
     COOKIE_EXPIRY = timedelta(days=7)  # 7 days
     COOKIE_SECURE = False # Set to True in production with HTTPS
     
+    # Twilio SMS Configuration
+    TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")
+    TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
+    TWILIO_PHONE_NUMBER = os.getenv("TWILIO_PHONE_NUMBER")
+    
+    # SMS Verification Settings
+    SMS_VERIFICATION_ENABLED = os.getenv("SMS_VERIFICATION_ENABLED", "True").lower() == "true"
+    SMS_VERIFICATION_CODE_LENGTH = 6
+    SMS_VERIFICATION_EXPIRY = int(timedelta(minutes=10).total_seconds())  # 10 minutes
+    SMS_VERIFICATION_CACHE_EXPIRY = int(timedelta(hours=24).total_seconds())  # 24 hours for verified status
+
     # Celery
     CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/0")
     CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", "redis://localhost:6379/0")
@@ -72,6 +84,9 @@ class Settings:
         "/api/v1/openapi.json",
         "/docs",
         "/redoc",
+        "/api/v1/auth/sms/send",
+        "/api/v1/auth/sms/verify",
+        "/api/v1/auth/sms/status",
         "/api/v1/auth/passkey/register/challenge",
         "/api/v1/auth/passkey/register/verify",
         "/api/v1/auth/passkey/login/challenge",

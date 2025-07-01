@@ -6,8 +6,11 @@ from datetime import date
 from webauthn import generate_registration_options, verify_registration_response, generate_authentication_options, verify_authentication_response
 from webauthn.helpers.structs import AuthenticatorSelectionCriteria, UserVerificationRequirement
 import json
+import base64
 
 from src.services.user_service import UserService
+from src.services.sms_service import sms_service
+
 from src.models.passkey import PasskeyCredential
 from src.models.user import User
 from src.schemas.passkey import (
@@ -26,13 +29,63 @@ from src.utils.cache import Cache
 class PasskeyService:
     """Service class for PasskeyCredential operations"""
 
+    @staticmethod
+    def _serialize_challenge_data(challenge_data) -> Dict[str, Any]:
+        """
+        Convert WebAuthn challenge data to JSON-serializable format
+        Only extracts required fields: challenge, user, rp, pubKeyCredParams, timeout, attestation
+        Handles base64 encoding of binary data
+        """
 
+        # Convert to dict first
+        if hasattr(challenge_data, 'model_dump'):
+            data_dict = challenge_data.model_dump()
+        elif hasattr(challenge_data, '__dict__'):
+            data_dict = challenge_data.__dict__
+        else:
+            # If it's already a dict
+            data_dict = challenge_data
+
+        # Only extract the required fields
+        required_fields = ['challenge', 'user', 'rp', 'pubKeyCredParams', 'timeout', 'attestation']
+        
+        # Recursively convert bytes to base64 strings and handle nested objects
+        def convert_bytes(obj):
+            if isinstance(obj, bytes):
+                return base64.b64encode(obj).decode('utf-8')
+            elif hasattr(obj, 'model_dump'):
+                # Handle pydantic models and similar objects
+                return convert_bytes(obj.model_dump())
+            elif hasattr(obj, '__dict__'):
+                # Handle other objects with attributes
+                return convert_bytes(obj.__dict__)
+            elif isinstance(obj, dict):
+                return {k: convert_bytes(v) for k, v in obj.items()}
+            elif isinstance(obj, list):
+                return [convert_bytes(item) for item in obj]
+            else:
+                return obj
+        
+        # Extract only the required fields and process them
+        result = {}
+        for field in required_fields:
+            if field in data_dict:
+                result[field] = convert_bytes(data_dict[field])
+
+        return result
 
     @staticmethod
     def create_signup_challenge(db: Session, user_phone: str, user_name: str, user_dob: Optional[date] = None, user_gender: Optional[str] = None) -> Dict[str, Any]:
         """
         Create a WebAuthn registration challenge for a user
+        Requires SMS verification before proceeding
         """
+        # Check SMS verification first (if enabled)
+        if settings.SMS_VERIFICATION_ENABLED and not sms_service.is_phone_verified(user_phone):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Phone number must be verified via SMS before passkey registration. Please verify your phone number first."
+            )
 
         existing_user = UserService.get_user_by_phone(db, user_phone)
         user_id = existing_user.id if existing_user else None
@@ -68,11 +121,11 @@ class PasskeyService:
         )
         
         # Store challenge in session/cache for verification
-        # Convert challenge_data to dict for JSON serialization
-        challenge_dict = challenge_data.model_dump() if hasattr(challenge_data, 'model_dump') else challenge_data.__dict__
-        Cache.set(f"webauthn_signup_challenge_{user_id}", json.dumps(challenge_dict, default=str), expiry=settings.CHALLENGE_CACHE_EXPIRY)
+        # Convert challenge_data to dict for JSON serialization with proper base64 encoding
+        challenge_dict = PasskeyService._serialize_challenge_data(challenge_data)
+        Cache.set(f"webauthn_signup_challenge_{user_id}", json.dumps(challenge_dict), expiry=settings.CHALLENGE_CACHE_EXPIRY)
     
-        return challenge_data
+        return challenge_dict
 
     @staticmethod
     def verify_signup_response(
@@ -173,11 +226,11 @@ class PasskeyService:
         )
 
         # Store challenge in session/cache for verification
-        # Convert challenge_data to dict for JSON serialization
-        challenge_dict = challenge_data.model_dump() if hasattr(challenge_data, 'model_dump') else challenge_data.__dict__
-        Cache.set(f"webauthn_login_challenge_{credential.user_id}", json.dumps(challenge_dict, default=str), expiry=settings.CHALLENGE_CACHE_EXPIRY)     
+        # Convert challenge_data to dict for JSON serialization with proper base64 encoding
+        challenge_dict = PasskeyService._serialize_challenge_data(challenge_data)
+        Cache.set(f"webauthn_login_challenge_{credential.user_id}", json.dumps(challenge_dict), expiry=settings.CHALLENGE_CACHE_EXPIRY)     
         
-        return challenge_data
+        return challenge_dict
 
     @staticmethod
     def verify_login_response(

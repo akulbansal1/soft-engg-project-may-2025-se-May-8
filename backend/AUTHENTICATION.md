@@ -85,13 +85,6 @@ await fetch("/api/v1/auth/logout", {
 });
 ```
 
-### 🔒 **Session Management**
-
-- **24-hour expiry** - Sessions automatically expire
-- **Server-side validation** - Tokens validated on each request
-- **Cache-based storage** - Sessions stored in Redis/cache
-- **Automatic cleanup** - Expired sessions removed automatically
-
 ## Adding Authentication to New Routes
 
 ### Step 1: Import the middleware

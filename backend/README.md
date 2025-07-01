@@ -179,54 +179,35 @@ The application automatically detects the database type from `DATABASE_URL`:
 - `GET /` - Basic health check
 - `GET /health` - Detailed health status
 
-### Users API (`/api/v1/users`)
+### SMS Verification Flow
 
-#### User Management
+1. **Send Verification Code:**
 
-- `POST /register` - Register new user
+   ```http
+   POST /api/v1/auth/sms/send
+   Content-Type: application/json
 
-  ```json
-  {
-    "name": "John Doe",
-    "email": "john@example.com"
-  }
-  ```
+   {
+     "phone": "+1234567890"
+   }
+   ```
 
-- `POST /login` - User login
+2. **Verify Code:**
 
-  ```json
-  {
-    "email": "john@example.com"
-  }
-  ```
+   ```http
+   POST /api/v1/auth/sms/verify
+   Content-Type: application/json
 
-- `POST /logout` - User logout (requires user_id)
+   {
+     "phone": "+1234567890",
+     "code": "123456"
+   }
+   ```
 
-- `POST /session/{user_id}` - Issue new session for user
-
-#### Implemented User Functions (UML Schema)
-
-- ✅ `register_user()` - User registration
-- ✅ `login_user()` - User authentication
-- ✅ `logout_user()` - User logout
-- ✅ `issue_session()` - Session management
-
-### Testing the API
-
-```bash
-# Health check
-curl http://localhost:8000/health
-
-# Register a user
-curl -X POST "http://localhost:8000/api/v1/users/register" \
-  -H "Content-Type: application/json" \
-  -d '{"name": "Test User", "email": "test@example.com"}'
-
-# Login user
-curl -X POST "http://localhost:8000/api/v1/users/login" \
-  -H "Content-Type: application/json" \
-  -d '{"email": "test@example.com"}'
-```
+3. **Check Verification Status:**
+   ```http
+   GET /api/v1/auth/sms/status/+1234567890
+   ```
 
 ## Development Guidelines
 
@@ -349,4 +330,45 @@ DEBUG=True
 # Celery Configuration (Optional)
 CELERY_BROKER_URL=redis://localhost:6379/0
 CELERY_RESULT_BACKEND=redis://localhost:6379/0
+
+# Twilio SMS Configuration (Required for SMS verification)
+TWILIO_ACCOUNT_SID=your_twilio_account_sid_here
+TWILIO_AUTH_TOKEN=your_twilio_auth_token_here
+TWILIO_PHONE_NUMBER=+1234567890
 ```
+
+## SMS Verification Setup
+
+This application includes SMS verification functionality powered by Twilio. Users must verify their phone numbers via SMS before registering with passkeys.
+
+**Note:** SMS verification can be disabled by setting `SMS_VERIFICATION_ENABLED=False` in your environment variables. This is useful for testing or development environments where SMS verification is not needed.
+
+### Twilio Configuration
+
+1. **Create a Twilio Account:**
+
+   - Go to [Twilio Console](https://console.twilio.com)
+   - Sign up for a new account or log in to existing account
+   - Verify your account (required for phone number provisioning)
+
+2. **Get Your Credentials:**
+
+   - Copy your **Account SID** from the Console Dashboard
+   - Copy your **Auth Token** from the Console Dashboard
+
+3. **Get a Phone Number:**
+
+   - Go to Phone Numbers > Manage > Buy a number
+   - Choose a phone number with SMS capabilities
+   - Copy the phone number (include country code, e.g., +1234567890)
+
+4. **Configure Environment Variables:**
+
+   ```bash
+   TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+   TWILIO_AUTH_TOKEN=your_auth_token_here
+   TWILIO_PHONE_NUMBER=+1234567890
+
+   # Optional: Disable SMS verification for testing/development
+   SMS_VERIFICATION_ENABLED=True  # Set to False to disable
+   ```

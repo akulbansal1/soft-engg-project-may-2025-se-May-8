@@ -14,10 +14,95 @@ from src.schemas.passkey import (
     PasskeyLoginRequest,
     PasskeyVerificationResult
 )
+from src.schemas.sms import (
+    SMSVerificationRequest,
+    SMSVerificationCodeRequest, 
+    SMSVerificationResponse,
+    SMSVerificationStatusResponse
+)
 from src.core.config import settings
 from src.core.auth_middleware import RequireOwnership, RequireAuth
 
 router = APIRouter(prefix="/auth", tags=["🔐 Authentication"])
+
+# SMS Verification Endpoints
+
+@router.post("/sms/send", response_model=SMSVerificationResponse)
+def send_sms_verification(
+    request: SMSVerificationRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Send SMS verification code to phone number
+    Step 1 of SMS verification process
+    """
+    try:
+        from src.services.sms_service import sms_service
+        result = sms_service.send_verification_code(request.phone)
+        
+        return SMSVerificationResponse(
+            success=result['success'],
+            message=result['message'],
+            expires_in=result.get('expires_in')
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to send verification code: {str(e)}"
+        )
+
+@router.post("/sms/verify", response_model=SMSVerificationStatusResponse)
+def verify_sms_code(
+    request: SMSVerificationCodeRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Verify SMS code for phone number
+    Step 2 of SMS verification process
+    """
+    try:
+        from src.services.sms_service import sms_service
+        result = sms_service.verify_code(request.phone, request.code)
+        
+        return SMSVerificationStatusResponse(
+            verified=result['success'],
+            message=result['message'],
+            expires_at=result.get('expires_at')
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to verify code: {str(e)}"
+        )
+
+@router.get("/sms/status/{phone}", response_model=SMSVerificationStatusResponse)
+def get_sms_verification_status(
+    phone: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Get SMS verification status for a phone number
+    """
+    try:
+        from src.services.sms_service import sms_service
+        result = sms_service.get_verification_status(phone)
+        
+        return SMSVerificationStatusResponse(
+            verified=result['verified'],
+            message=result['message'],
+            expires_at=result.get('expires_at')
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get verification status: {str(e)}"
+        )
+
+# Passkey Registration and Login Endpoints
 
 @router.post("/passkey/register/challenge", response_model=Dict[str, Any])
 def create_passkey_registration_challenge(
@@ -38,10 +123,7 @@ def create_passkey_registration_challenge(
             request.user_gender
         )
 
-        return {
-            "challenge": challenge_data,
-            "message": "Registration challenge created"
-        }
+        return challenge_data
     except HTTPException:
         raise
     except Exception as e:
@@ -162,7 +244,6 @@ def verify_passkey_login(
             detail=f"Failed to verify login: {str(e)}"
         )
 
-## TODO: Gate this to only allow the user itself to access their passkey info
 @router.get("/passkey/user/{user_id}", response_model=List[PasskeyCredentialResponse])
 def get_user_passkeys(user_id: int, current_user = Depends(RequireOwnership), db: Session = Depends(get_db)):
     """
