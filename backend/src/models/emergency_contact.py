@@ -14,7 +14,7 @@ class EmergencyContact(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     name = Column(String, nullable=False)
     relation = Column(String, nullable=True)
-    phone = Column(Integer, nullable=False)
+    phone = Column(String, nullable=False)
 
     # Relationship to User model
     user = relationship("User", back_populates="emergency_contacts")

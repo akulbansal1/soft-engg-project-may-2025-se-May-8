@@ -22,7 +22,7 @@ def test_emergency_contact_crud():
     contact_data = {
         "name": "Jane Doe",
         "relation": "Sister",
-        "phone": 9876543210,
+        "phone": "9876543210",
         "user_id": user_id
     }
     response = client.post("/api/v1/emergency-contacts/", json=contact_data)

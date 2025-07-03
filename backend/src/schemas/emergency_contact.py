@@ -15,7 +15,7 @@ class EmergencyContactUpdate(BaseModel):
     """Schema for updating an emergency contact"""
     name: Optional[str] = None
     relation: Optional[str] = None
-    phone: Optional[int] = None
+    phone: Optional[str] = None
 
 class EmergencyContactResponse(EmergencyContactBase):
     """Schema for returning emergency contact data to the client"""
