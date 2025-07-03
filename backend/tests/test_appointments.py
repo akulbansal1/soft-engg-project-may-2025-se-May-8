@@ -24,7 +24,7 @@ def create_doctor():
     db.commit()
     db.refresh(doctor)
     db.close()
-    return doctor.doctor_id
+    return doctor.id
 
 def test_appointment_crud():
     user_id = create_user()

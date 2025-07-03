@@ -18,7 +18,7 @@ class DoctorService:
     @staticmethod
     def get_doctor(db: Session, doctor_id: int) -> Optional[Doctor]:
         """Get a doctor by ID."""
-        return db.query(Doctor).filter(Doctor.doctor_id == doctor_id).first()
+        return db.query(Doctor).filter(Doctor.id == doctor_id).first()
 
     @staticmethod
     def get_all_doctors(db: Session) -> List[Doctor]:
@@ -28,7 +28,7 @@ class DoctorService:
     @staticmethod
     def update_doctor(db: Session, doctor_id: int, doctor_in: DoctorUpdate) -> Optional[Doctor]:
         """Update a doctor record."""
-        doctor = db.query(Doctor).filter(Doctor.doctor_id == doctor_id).first()
+        doctor = db.query(Doctor).filter(Doctor.id == doctor_id).first()
         if not doctor:
             return None
         for field, value in doctor_in.model_dump(exclude_unset=True).items():
@@ -40,7 +40,7 @@ class DoctorService:
     @staticmethod
     def delete_doctor(db: Session, doctor_id: int) -> bool:
         """Delete a doctor record."""
-        doctor = db.query(Doctor).filter(Doctor.doctor_id == doctor_id).first()
+        doctor = db.query(Doctor).filter(Doctor.id == doctor_id).first()
         if not doctor:
             return False
         db.delete(doctor)
