@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Pencil, Trash2, PlusCircle, Search } from "lucide-react";
+import { Pencil, Trash2, PlusCircle, Search, ArrowLeft } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -12,6 +12,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { useNavigate } from "react-router-dom";
 
 interface Contact {
   name: string;
@@ -70,10 +71,22 @@ const EmergencyContactsPage: React.FC = () => {
       c.phone.includes(searchTerm)
   );
 
+  const navigate = useNavigate();
+
   return (
     <div className="h-[calc(100dvh-110px)] flex flex-col space-y-6 overflow-hidden">
       <div className="flex justify-between items-end">
-        <h2 className="text-2xl font-semibold">Emergency Contacts</h2>
+        <h2 className="text-2xl font-semibold">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate("/home")}
+            className="mr-4"
+          >
+            <ArrowLeft size={20} />
+          </Button>
+          Emergency Contacts
+        </h2>
         <Button onClick={() => handleOpen()} variant="outline">
           <PlusCircle className="mr-2" size={16} /> Add Contact
         </Button>
@@ -94,7 +107,7 @@ const EmergencyContactsPage: React.FC = () => {
 
       <div className="flex-1 overflow-hidden">
         <ScrollArea className="h-full">
-          <Card className="w-full">
+          <Card className="w-full bg-transparent">
             <CardHeader>
               <CardTitle>Contacts List</CardTitle>
             </CardHeader>

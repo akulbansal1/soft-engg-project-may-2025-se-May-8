@@ -27,6 +27,8 @@ interface Appointment {
 }
 
 // Parse date string as local date to avoid timezone offsets
+
+// Add green color to past appointments
 const parseLocalDate = (dateStr: string): Date => {
   const [year, month, day] = dateStr.split("-").map(Number);
   return new Date(year, month - 1, day);
@@ -211,11 +213,28 @@ const AppointmentsPage: React.FC = () => {
                 onSelect={setSelectedDate}
                 className="w-full h-full min-h-[250px] md:min-h-[350px]"
                 modifiers={{
-                  hasAppointment: (date) =>
-                    appointmentsByDate.has(date.toDateString()),
+                  hasFutureAppointment: (date) => {
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    return (
+                      appointmentsByDate.has(date.toDateString()) &&
+                      date >= today
+                    );
+                  },
+                  hasPastAppointment: (date) => {
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    return (
+                      appointmentsByDate.has(date.toDateString()) &&
+                      date < today
+                    );
+                  },
                 }}
                 modifiersClassNames={{
-                  hasAppointment: "bg-blue-100 dark:bg-blue-900/50 rounded-lg",
+                  hasFutureAppointment:
+                    "bg-blue-100 dark:bg-blue-900/50 rounded-lg",
+                  hasPastAppointment:
+                    "bg-green-100 dark:bg-green-900/50 rounded-lg",
                 }}
               />
             </div>

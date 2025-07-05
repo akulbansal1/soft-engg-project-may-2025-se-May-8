@@ -24,9 +24,12 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 
+// SOS can be sms or a call.
+
 const HomePage: React.FC = () => {
   const navigate = useNavigate();
   const firstName = "John";
+
 
   const menuItems = [
     { title: "Medicines", route: "/medicines", icon: Pill },
