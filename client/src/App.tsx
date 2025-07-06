@@ -12,6 +12,8 @@ import HealthPage from "./pages/HealthPage";
 import MedicinesPage from "./pages/MedicinesPage";
 import DataVault from "./pages/DataVault";
 import Settings from "./pages/Settings";
+import CameraInput from "./pages/Camera";
+import DocScanner from "./pages/DocScanner";
 
 const App: React.FC = () => {
   const [dark, setDark] = useState<boolean>(() => {
@@ -62,6 +64,8 @@ const App: React.FC = () => {
             <Route path="/medicines" element={<MedicinesPage />} />
             <Route path="/data-vault" element={<DataVault />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/camera" element={<CameraInput/>} />
+            <Route path="/docscanner" element={<DocScanner />} />
           </Routes>
         </main>
       </div>
