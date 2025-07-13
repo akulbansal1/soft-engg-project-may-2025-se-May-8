@@ -13,7 +13,7 @@ class DoctorUpdate(BaseModel):
     location: Optional[str] = Field(None, example="Delhi")
 
 class DoctorResponse(DoctorBase):
-    doctor_id: int = Field(..., example=1)
+    id: int = Field(..., example=1)
 
     class Config:
         from_attributes = True

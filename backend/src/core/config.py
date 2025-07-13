@@ -47,7 +47,7 @@ class Settings:
     FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "http://localhost:3000")
 
     # Session and cache settings
-    CHALLENGE_TIMEOUT = int(timedelta(minutes=5).total_seconds())  # 5 minutes in seconds
+    CHALLENGE_TIMEOUT = int(timedelta(minutes=5).total_seconds()*1000)  # 5 minutes in milliseconds
     CHALLENGE_CACHE_EXPIRY = int(timedelta(minutes=10).total_seconds())  # 10 minutes in seconds
 
     SESSION_TOKEN_EXPIRY = timedelta(hours=24*7) # 7 days

@@ -340,7 +340,7 @@ class TestPasskeyService:
                 # Verify challenge generation
                 mock_gen_options.assert_called_once()
                 mock_cache_set.assert_called_once()
-                assert result == mock_challenge_data
+                assert result == PasskeyService._serialize_challenge_data(mock_challenge_data)
 
     def test_create_signup_challenge_existing_inactive_user(self, test_db):
         """Test creating signup challenge for existing inactive user"""
@@ -360,7 +360,7 @@ class TestPasskeyService:
                 result = PasskeyService.create_signup_challenge(test_db, "8888888888", "Test User")
                 
                 # Should use existing user
-                assert result == mock_challenge_data
+                assert result == PasskeyService._serialize_challenge_data(mock_challenge_data)
                 mock_gen_options.assert_called_once()
 
     def test_create_signup_challenge_existing_active_user(self, test_db):
@@ -410,7 +410,7 @@ class TestPasskeyService:
                 # Verify challenge generation
                 mock_gen_options.assert_called_once()
                 mock_cache_set.assert_called_once()
-                assert result == mock_challenge_data
+                assert result == PasskeyService._serialize_challenge_data(mock_challenge_data)
 
     def test_create_signup_challenge_with_partial_optional_fields(self, test_db):
         """Test creating signup challenge with only some optional fields"""
@@ -464,7 +464,7 @@ class TestPasskeyService:
                 
                 result = PasskeyService.create_login_challenge(test_db, credential.credential_id)
                 
-                assert result == mock_challenge_data
+                assert result == PasskeyService._serialize_challenge_data(mock_challenge_data)
                 mock_gen_options.assert_called_once()
                 mock_cache_set.assert_called_once()
 
