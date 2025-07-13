@@ -30,7 +30,6 @@ const HomePage: React.FC = () => {
   const navigate = useNavigate();
   const firstName = "John";
 
-
   const menuItems = [
     { title: "Medicines", route: "/medicines", icon: Pill },
     { title: "Appointments", route: "/appointments", icon: CalendarCheck },
@@ -46,6 +45,8 @@ const HomePage: React.FC = () => {
   const [sosOpen, setSosOpen] = useState(false);
   const [countdown, setCountdown] = useState(10);
   const [alertSent, setAlertSent] = useState(false);
+
+  const isDark = document.documentElement.classList.contains("dark");
 
   useEffect(() => {
     let timer: NodeJS.Timeout;
@@ -132,9 +133,9 @@ const HomePage: React.FC = () => {
                   text={`${countdown}s`}
                   strokeWidth={10}
                   styles={buildStyles({
-                    pathColor: "red",
+                    pathColor: isDark ? "white" : "black",
                     trailColor: "transparent",
-                    textColor: "red",
+                    textColor: isDark ? "white" : "black",
                     textSize: "18px",
                     strokeLinecap: "round",
                     pathTransitionDuration: 0.3,
@@ -146,7 +147,7 @@ const HomePage: React.FC = () => {
             <DialogDescription className="text-sm text-center">
               {alertSent
                 ? "Your emergency contacts have been notified."
-                : `Alert will send in ${countdown} seconds.`}
+                : `Alert will be sent in ${countdown} seconds.`}
             </DialogDescription>
           </DialogHeader>
 

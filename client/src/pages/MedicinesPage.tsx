@@ -5,7 +5,6 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PlusCircle, Edit, Trash2, Search, ArrowLeft } from "lucide-react";
-
 import {
   Dialog,
   DialogTrigger,
@@ -15,180 +14,224 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+} from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
+import * as yup from "yup";
 
 interface Medication {
   name: string;
   frequency: string;
   dosage: string;
-  duration: string;
+  startDate: string;
+  endDate: string;
 }
 
-// Add a start date, end date, notes (dialogue box). remove duration.
-// Mic for dictating Prescription.
+const initialActive: Medication[] = [
+  {
+    name: "Atorvastatin",
+    frequency: "Once daily",
+    dosage: "20mg",
+    startDate: "2025-01-10",
+    endDate: "2025-04-10",
+  },
+  {
+    name: "Metformin",
+    frequency: "Twice daily",
+    dosage: "500mg",
+    startDate: "2025-02-01",
+    endDate: "2025-08-01",
+  },
+  {
+    name: "Combiflame",
+    frequency: "Thrice daily",
+    dosage: "30mg",
+    startDate: "2025-02-06",
+    endDate: "2025-08-08",
+  },
+];
+const initialPast: Medication[] = [
+  {
+    name: "Lisinopril",
+    frequency: "Once daily",
+    dosage: "10mg",
+    startDate: "2024-03-01",
+    endDate: "2025-03-01",
+  },
+  {
+    name: "Omeprazole",
+    frequency: "Once daily",
+    dosage: "20mg",
+    startDate: "2023-06-15",
+    endDate: "2023-08-15",
+  },
+];
+
+const medicationSchema = yup.object().shape({
+  name: yup.string().required("Medicine name is required"),
+  frequency: yup.string().required("Frequency is required"),
+  dosage: yup.string().required("Dosage is required"),
+  startDate: yup.string().required("Start date is required"),
+  endDate: yup.string().required("End date is required"),
+});
 
 const MedicinesPage: React.FC = () => {
-  const [activeMeds, setActiveMeds] = useState<Medication[]>([
-    {
-      name: "Atorvastatin",
-      frequency: "Once daily",
-      dosage: "20mg",
-      duration: "3 months",
-    },
-    {
-      name: "Metformin",
-      frequency: "Twice daily",
-      dosage: "500mg",
-      duration: "6 months",
-    },
-    {
-      name: "Amlodipine",
-      frequency: "Once daily",
-      dosage: "5mg",
-      duration: "12 months",
-    },
-    {
-      name: "Aspirin",
-      frequency: "Once daily",
-      dosage: "81mg",
-      duration: "Ongoing",
-    },
-  ]);
-
-  const [pastMeds] = useState<Medication[]>([
-    {
-      name: "Lisinopril",
-      frequency: "Once daily",
-      dosage: "10mg",
-      duration: "1 year",
-    },
-    {
-      name: "Omeprazole",
-      frequency: "Once daily",
-      dosage: "20mg",
-      duration: "2 months",
-    },
-    {
-      name: "Ibuprofen",
-      frequency: "As needed",
-      dosage: "400mg",
-      duration: "1 week",
-    },
-  ]);
+  const [activeMeds, setActiveMeds] = useState<Medication[]>(initialActive);
+  const [pastMeds] = useState<Medication[]>(initialPast);
 
   const [newMed, setNewMed] = useState<Medication>({
     name: "",
     frequency: "",
     dosage: "",
-    duration: "",
+    startDate: "",
+    endDate: "",
   });
+  const [errors, setErrors] = useState<
+    Partial<Record<keyof Medication, string>>
+  >({});
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("active");
 
+  const [startDateObj, setStartDateObj] = useState<Date | undefined>(undefined);
+  const [endDateObj, setEndDateObj] = useState<Date | undefined>(undefined);
+
+  // Clear error for field on change
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setNewMed((prev) => ({ ...prev, [name]: value }));
+    if (errors[name as keyof Medication]) {
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next[name as keyof Medication];
+        return next;
+      });
+    }
   };
 
-  const handleAddOrUpdate = () => {
-    if (editingIndex !== null) {
-      const updated = [...activeMeds];
-      updated[editingIndex] = newMed;
-      setActiveMeds(updated);
-    } else {
-      setActiveMeds((prev) => [...prev, newMed]);
+  const handleAddOrUpdate = async () => {
+    try {
+      await medicationSchema.validate(newMed, { abortEarly: false });
+      if (editingIndex !== null) {
+        const updated = [...activeMeds];
+        updated[editingIndex] = newMed;
+        setActiveMeds(updated);
+      } else {
+        setActiveMeds((prev) => [...prev, newMed]);
+      }
+      // Reset form
+      setNewMed({
+        name: "",
+        frequency: "",
+        dosage: "",
+        startDate: "",
+        endDate: "",
+      });
+      setStartDateObj(undefined);
+      setEndDateObj(undefined);
+      setEditingIndex(null);
+      setDialogOpen(false);
+      setErrors({});
+    } catch (err: any) {
+      const fieldErrors: Partial<Record<keyof Medication, string>> = {};
+      err.inner?.forEach((e: any) => {
+        if (e.path) fieldErrors[e.path as keyof Medication] = e.message;
+      });
+      setErrors(fieldErrors);
     }
-    setNewMed({ name: "", frequency: "", dosage: "", duration: "" });
-    setEditingIndex(null);
-    setDialogOpen(false);
   };
 
   const handleEdit = (idx: number) => {
-    setNewMed(activeMeds[idx]);
+    const med = activeMeds[idx];
+    setNewMed(med);
+    setStartDateObj(new Date(med.startDate));
+    setEndDateObj(new Date(med.endDate));
     setEditingIndex(idx);
     setDialogOpen(true);
+    setErrors({});
   };
 
   const handleDelete = (idx: number) => {
     setActiveMeds((prev) => prev.filter((_, i) => i !== idx));
   };
 
-  const filteredActiveMeds = useMemo(() => {
-    return activeMeds.filter(
-      (med) =>
-        med.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        med.dosage.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        med.frequency.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        med.duration.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }, [activeMeds, searchTerm]);
-
-  const filteredPastMeds = useMemo(() => {
-    return pastMeds.filter(
-      (med) =>
-        med.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        med.dosage.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        med.frequency.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        med.duration.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }, [pastMeds, searchTerm]);
+  const filteredActiveMeds = useMemo(
+    () =>
+      activeMeds.filter(
+        (med) =>
+          med.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          med.dosage.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          med.frequency.toLowerCase().includes(searchTerm.toLowerCase())
+      ),
+    [activeMeds, searchTerm]
+  );
+  const filteredPastMeds = useMemo(
+    () =>
+      pastMeds.filter(
+        (med) =>
+          med.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          med.dosage.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          med.frequency.toLowerCase().includes(searchTerm.toLowerCase())
+      ),
+    [pastMeds, searchTerm]
+  );
 
   const renderMedicationList = (meds: Medication[], isActive = true) => (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {meds.length === 0 ? (
         <div className="text-center py-8 text-muted-foreground">
           <p>No medications found</p>
           {searchTerm && (
-            <p className="text-sm">Try adjusting your search terms</p>
+            <p className="text-xs">Try adjusting your search terms</p>
           )}
         </div>
       ) : (
         meds.map((med, idx) => (
-          <div
-            key={idx}
-            className="flex justify-between items-center border-b last:border-b-0 pb-3 last:pb-0"
-          >
-            <div className="flex-1">
-              <p className="font-medium text-lg">{med.name}</p>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 mt-1">
-                <p className="text-sm text-muted-foreground">
-                  <span className="font-medium">Dosage:</span> {med.dosage}
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  <span className="font-medium">Frequency:</span>{" "}
-                  {med.frequency}
-                </p>
+          <Card key={idx} className="p-4">
+            <div className="flex justify-between items-start">
+              <div>
+                <p className="font-semibold text-lg mb-2">{med.name}</p>
+                <div className="flex flex-wrap gap-2">
+                  <span className="bg-zinc-100 dark:bg-zinc-800 rounded-full px-2 py-1 text-xs">
+                    {med.dosage}
+                  </span>
+                  <span className="bg-zinc-100 dark:bg-zinc-800 rounded-full px-2 py-1 text-xs">
+                    {med.frequency}
+                  </span>
+                  <span className="bg-zinc-100 dark:bg-zinc-800 rounded-full px-2 py-1 text-xs">
+                    Start: {med.startDate}
+                  </span>
+                  <span className="bg-zinc-100 dark:bg-zinc-800 rounded-full px-2 py-1 text-xs">
+                    End: {med.endDate}
+                  </span>
+                </div>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 mt-1">
-                <p className="text-sm text-muted-foreground">
-                  <span className="font-medium">Start Date:</span> 12/03/2025
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  <span className="font-medium">End Date:</span> 15/04/2025
-                </p>
-              </div>
-            </div>
-            <div className="flex space-x-2 ml-4">
-              {isActive && (
+              <div className="flex space-x-2">
+                {isActive && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleEdit(idx)}
+                  >
+                    <Edit size={16} />
+                  </Button>
+                )}
                 <Button
-                  variant="ghost"
+                  variant="destructive"
                   size="icon"
-                  onClick={() => handleEdit(idx)}
+                  onClick={() => isActive && handleDelete(idx)}
                 >
-                  <Edit size={16} />
+                  <Trash2 size={16} />
                 </Button>
-              )}
-              <Button
-                variant="destructive"
-                size="icon"
-                onClick={() => (isActive ? handleDelete(idx) : null)}
-              >
-                <Trash2 size={16} />
-              </Button>
+              </div>
             </div>
-          </div>
+          </Card>
         ))
       )}
     </div>
@@ -198,9 +241,8 @@ const MedicinesPage: React.FC = () => {
 
   return (
     <div className="h-[calc(100dvh-110px)] flex flex-col space-y-6 overflow-hidden">
-      {/* Header & Add Button */}
-      <div className="flex justify-between">
-        <h2 className="text-2xl font-semibold">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-semibold flex items-center">
           <Button
             variant="ghost"
             size="sm"
@@ -222,8 +264,12 @@ const MedicinesPage: React.FC = () => {
                   name: "",
                   frequency: "",
                   dosage: "",
-                  duration: "",
+                  startDate: "",
+                  endDate: "",
                 });
+                setStartDateObj(undefined);
+                setEndDateObj(undefined);
+                setErrors({});
               }}
             >
               <PlusCircle className="mr-2" /> Add
@@ -241,30 +287,113 @@ const MedicinesPage: React.FC = () => {
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
-              <Input
-                name="name"
-                value={newMed.name}
-                onChange={handleChange}
-                placeholder="Medicine Name"
-              />
-              <Input
-                name="dosage"
-                value={newMed.dosage}
-                onChange={handleChange}
-                placeholder="Dosage (e.g., 20mg)"
-              />
-              <Input
-                name="frequency"
-                value={newMed.frequency}
-                onChange={handleChange}
-                placeholder="Frequency (e.g., Twice daily)"
-              />
-              <Input
-                name="duration"
-                value={newMed.duration}
-                onChange={handleChange}
-                placeholder="Duration (e.g., 3 months)"
-              />
+              <div>
+                <Input
+                  name="name"
+                  value={newMed.name}
+                  onChange={handleChange}
+                  placeholder="Medicine Name"
+                />
+                {errors.name && (
+                  <p className="text-xs text-red-500 mt-1">{errors.name}</p>
+                )}
+              </div>
+              <div>
+                <Input
+                  name="dosage"
+                  value={newMed.dosage}
+                  onChange={handleChange}
+                  placeholder="Dosage (e.g., 20mg)"
+                />
+                {errors.dosage && (
+                  <p className="text-xs text-red-500 mt-1">{errors.dosage}</p>
+                )}
+              </div>
+              <div>
+                <Input
+                  name="frequency"
+                  value={newMed.frequency}
+                  onChange={handleChange}
+                  placeholder="Frequency (e.g., Twice daily)"
+                />
+                {errors.frequency && (
+                  <p className="text-xs text-red-500 mt-1">
+                    {errors.frequency}
+                  </p>
+                )}
+              </div>
+              <div>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="w-full text-left justify-start"
+                    >
+                      {startDateObj
+                        ? format(startDateObj, "yyyy-MM-dd")
+                        : "Select Start Date"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0">
+                    <Calendar
+                      mode="single"
+                      selected={startDateObj}
+                      onSelect={(d) => {
+                        setStartDateObj(d);
+                        const str = d ? format(d, "yyyy-MM-dd") : "";
+                        setNewMed((prev) => ({ ...prev, startDate: str }));
+                        if (errors.startDate)
+                          setErrors((prev) => {
+                            const next = { ...prev };
+                            delete next.startDate;
+                            return next;
+                          });
+                      }}
+                      captionLayout="dropdown"
+                    />
+                  </PopoverContent>
+                </Popover>
+                {errors.startDate && (
+                  <p className="text-xs text-red-500 mt-1">
+                    {errors.startDate}
+                  </p>
+                )}
+              </div>
+              <div>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="w-full text-left justify-start"
+                    >
+                      {endDateObj
+                        ? format(endDateObj, "yyyy-MM-dd")
+                        : "Select End Date"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0">
+                    <Calendar
+                      mode="single"
+                      selected={endDateObj}
+                      onSelect={(d) => {
+                        setEndDateObj(d);
+                        const str = d ? format(d, "yyyy-MM-dd") : "";
+                        setNewMed((prev) => ({ ...prev, endDate: str }));
+                        if (errors.endDate)
+                          setErrors((prev) => {
+                            const next = { ...prev };
+                            delete next.endDate;
+                            return next;
+                          });
+                      }}
+                      captionLayout="dropdown"
+                    />
+                  </PopoverContent>
+                </Popover>
+                {errors.endDate && (
+                  <p className="text-xs text-red-500 mt-1">{errors.endDate}</p>
+                )}
+              </div>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setDialogOpen(false)}>
@@ -278,7 +407,6 @@ const MedicinesPage: React.FC = () => {
         </Dialog>
       </div>
 
-      {/* Search */}
       <div className="relative">
         <Search
           className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground"
@@ -292,7 +420,6 @@ const MedicinesPage: React.FC = () => {
         />
       </div>
 
-      {/* Tabs and Scrollable Content */}
       <Tabs
         value={activeTab}
         onValueChange={setActiveTab}
@@ -306,7 +433,6 @@ const MedicinesPage: React.FC = () => {
             Past Medications ({filteredPastMeds.length})
           </TabsTrigger>
         </TabsList>
-
         <TabsContent value="active" className="flex-1 mt-4 overflow-hidden">
           <Card className="flex flex-col h-full bg-transparent">
             <CardHeader>
@@ -319,7 +445,6 @@ const MedicinesPage: React.FC = () => {
             </CardContent>
           </Card>
         </TabsContent>
-
         <TabsContent value="past" className="flex-1 mt-4 overflow-hidden">
           <Card className="flex flex-col h-full bg-transparent">
             <CardHeader>
