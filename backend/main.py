@@ -37,12 +37,12 @@ app.add_middleware(
 # Include API routes
 app.include_router(api_router, prefix=settings.API_V1_STR)
 
-@app.get("/api/v1/")
+@app.get(settings.API_V1_STR + "/")
 def read_root():
     """Health check endpoint"""
     return {"message": "Backend is running!", "status": "ok", "version": "1.0.0"}
 
-@app.get("/api/v1/health")
+@app.get(settings.API_V1_STR + "/health")
 def health_check():
     """Health check for monitoring"""
     return {"status": "healthy", "service": "backend-api"}
