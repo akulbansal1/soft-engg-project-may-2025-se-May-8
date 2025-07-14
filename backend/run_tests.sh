@@ -16,7 +16,7 @@ fi
 
 # Install test dependencies if not already installed
 echo "📋 Checking test dependencies..."
-pip install -q pytest pytest-cov pytest-asyncio pytest-timeout httpx
+pip install -q -r requirements.txt
 
 # Create test results directory
 mkdir -p test-results

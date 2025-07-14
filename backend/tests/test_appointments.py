@@ -4,10 +4,30 @@ Appointment API tests
 import pytest
 from src.models.user import User
 from src.models.doctor import Doctor
+from src.schemas.user import UserCreate
+from src.services.user_service import UserService
+from src.core.config import settings
 
 
 class TestAppointments:
     """Test appointment CRUD operations"""
+
+    def create_admin_session(self, client):
+        """Helper to create an admin session"""
+        client.cookies.set("session_token", settings.ADMIN_SESSION_TOKEN)
+
+    def create_authenticated_session(self, client, test_db):
+        """Helper to create a regular authenticated session"""
+        user_data = UserCreate(name="Test User", phone="1234567890", is_active=True)
+        user = UserService.register_user(test_db, user_data)
+        
+        session_data = UserService.issue_session(user.id)
+        session_token = session_data["session_token"]
+        
+        # Set session cookie in the client
+        client.cookies.set("session_token", session_token)
+        
+        return user, session_token
     
     def create_user(self, test_db):
         """Helper to create a user for testing"""
@@ -27,6 +47,9 @@ class TestAppointments:
 
     def test_appointment_crud(self, client, test_db):
         """Test appointment CRUD operations"""
+        # Set up admin authentication for CRUD operations
+        self.create_admin_session(client)
+        
         user_id = self.create_user(test_db)
         doctor_id = self.create_doctor(test_db)
         

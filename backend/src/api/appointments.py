@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List
 
 from src.db.database import get_db
+from src.core.auth_middleware import RequireAdmin
 from src.services.appointment_service import AppointmentService
 from src.schemas.appointment import AppointmentCreate, AppointmentUpdate, AppointmentResponse
 from src.utils.cache import Cache
@@ -10,7 +11,7 @@ from src.utils.cache import Cache
 router = APIRouter(prefix="/appointments", tags=["Appointments"])
 
 @router.post("/", response_model=AppointmentResponse, responses={201: {"description": "Appointment created successfully."}, 400: {"description": "Invalid input."}})
-def create_appointment(appointment: AppointmentCreate, db: Session = Depends(get_db)):
+def create_appointment(appointment: AppointmentCreate, db: Session = Depends(get_db), isAdmin = Depends(RequireAdmin)):
     """Create a new appointment record."""
     try:
         result = AppointmentService.create_appointment(db, appointment)
@@ -53,7 +54,7 @@ def get_appointment_by_id(appointment_id: int, db: Session = Depends(get_db)):
     return appointment
 
 @router.put("/{appointment_id}", response_model=AppointmentResponse, responses={200: {"description": "Appointment updated successfully."}, 404: {"description": "Appointment not found."}})
-def update_appointment(appointment_id: int, appointment_update: AppointmentUpdate, db: Session = Depends(get_db)):
+def update_appointment(appointment_id: int, appointment_update: AppointmentUpdate, db: Session = Depends(get_db), isAdmin = Depends(RequireAdmin)):
     """Update an existing appointment record."""
     appointment = AppointmentService.update_appointment(db, appointment_id, appointment_update)
     if not appointment:
@@ -64,7 +65,7 @@ def update_appointment(appointment_id: int, appointment_update: AppointmentUpdat
     return appointment
 
 @router.delete("/{appointment_id}", responses={200: {"description": "Appointment deleted successfully."}, 404: {"description": "Appointment not found."}})
-def delete_appointment(appointment_id: int, db: Session = Depends(get_db)):
+def delete_appointment(appointment_id: int, db: Session = Depends(get_db), isAdmin = Depends(RequireAdmin)):
     """Delete an appointment by its ID."""
     appointment = AppointmentService.get_appointment(db, appointment_id)
     if not appointment:

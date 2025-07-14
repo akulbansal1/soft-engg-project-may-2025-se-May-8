@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Cookie
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional, Annotated
 
 from src.db.database import get_db
+from src.core.auth_middleware import RequireAdminOrOwnership, RequireAdminOrUser
 from src.services.medicine_service import MedicineService
 from src.schemas.medicine import MedicineCreate, MedicineUpdate, MedicineResponse
 from src.utils.cache import Cache
@@ -10,8 +11,15 @@ from src.utils.cache import Cache
 router = APIRouter(prefix="/medicines", tags=["Medicines"])
 
 @router.post("/", response_model=MedicineResponse, responses={201: {"description": "Medicine created successfully."}, 400: {"description": "Invalid input."}})
-def create_medicine(medicine: MedicineCreate, db: Session = Depends(get_db)):
+def create_medicine(
+    medicine: MedicineCreate, 
+    db: Session = Depends(get_db), 
+    session_token: Annotated[Optional[str], Cookie()] = None
+):
     """Create a new medicine record."""
+    
+    RequireAdminOrUser(user_id=medicine.user_id,session_token=session_token, db=db)
+    
     try:
         result = MedicineService.create_medicine(db, medicine)
         Cache.delete(f"medicines_user_{medicine.user_id}")
@@ -40,7 +48,7 @@ def get_medicine_by_id(medicine_id: int, db: Session = Depends(get_db)):
     return medicine
 
 @router.put("/{medicine_id}", response_model=MedicineResponse, responses={200: {"description": "Medicine updated successfully."}, 404: {"description": "Medicine not found."}})
-def update_medicine(medicine_id: int, medicine_update: MedicineUpdate, db: Session = Depends(get_db)):
+def update_medicine(medicine_id: int, medicine_update: MedicineUpdate, db: Session = Depends(get_db), isAuthenticated: bool = Depends(RequireAdminOrOwnership)):
     """Update an existing medicine record."""
     medicine = MedicineService.update_medicine(db, medicine_id, medicine_update)
     if not medicine:
@@ -49,7 +57,7 @@ def update_medicine(medicine_id: int, medicine_update: MedicineUpdate, db: Sessi
     return medicine
 
 @router.delete("/{medicine_id}", responses={200: {"description": "Medicine deleted successfully."}, 404: {"description": "Medicine not found."}})
-def delete_medicine(medicine_id: int, db: Session = Depends(get_db)):
+def delete_medicine(medicine_id: int, db: Session = Depends(get_db), isAuthenticated: bool = Depends(RequireAdminOrOwnership)):
     """Delete a medicine by its ID."""
     medicine = MedicineService.get_medicine(db, medicine_id)
     if not medicine:
