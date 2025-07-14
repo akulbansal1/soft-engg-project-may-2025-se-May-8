@@ -11,7 +11,7 @@ class Medicine(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
-    appointment_id = Column(Integer, ForeignKey("appointments.id"), nullable=False, index=True)
+    appointment_id = Column(Integer, ForeignKey("appointments.id"), nullable=True, index=True)
     name = Column(String, nullable=False)
     dosage = Column(String, nullable=False)
     frequency = Column(String, nullable=False)

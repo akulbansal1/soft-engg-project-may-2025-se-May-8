@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Cookie
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional, Annotated
 
 from src.db.database import get_db
+from src.core.auth_middleware import RequireAdminOrOwnership, RequireAdminOrUser
 from src.services.document_service import DocumentService
 from src.schemas.document import DocumentCreate, DocumentUpdate, DocumentResponse
 from src.utils.cache import Cache
@@ -10,8 +11,14 @@ from src.utils.cache import Cache
 router = APIRouter(prefix="/documents", tags=["Documents"])
 
 @router.post("/", response_model=DocumentResponse, responses={201: {"description": "Document created successfully."}, 400: {"description": "Invalid input."}})
-def create_document(document: DocumentCreate, db: Session = Depends(get_db)):
+def create_document(
+    document: DocumentCreate, 
+    db: Session = Depends(get_db), 
+    session_token: Annotated[Optional[str], Cookie()] = None
+):
     """Create a new document record."""
+    RequireAdminOrUser(user_id=document.user_id,session_token=session_token, db=db)
+    
     try:
         result = DocumentService.create_document(db, document)
         Cache.delete(f"documents_user_{document.user_id}")
@@ -40,7 +47,7 @@ def get_document_by_id(document_id: int, db: Session = Depends(get_db)):
     return document
 
 @router.put("/{document_id}", response_model=DocumentResponse, responses={200: {"description": "Document updated successfully."}, 404: {"description": "Document not found."}})
-def update_document(document_id: int, document_update: DocumentUpdate, db: Session = Depends(get_db)):
+def update_document(document_id: int, document_update: DocumentUpdate, db: Session = Depends(get_db), isAuthenticated: bool = Depends(RequireAdminOrOwnership)):
     """Update an existing document record."""
     document = DocumentService.update_document(db, document_id, document_update)
     if not document:
@@ -49,7 +56,7 @@ def update_document(document_id: int, document_update: DocumentUpdate, db: Sessi
     return document
 
 @router.delete("/{document_id}", responses={200: {"description": "Document deleted successfully."}, 404: {"description": "Document not found."}})
-def delete_document(document_id: int, db: Session = Depends(get_db)):
+def delete_document(document_id: int, db: Session = Depends(get_db), isAuthenticated: bool = Depends(RequireAdminOrOwnership)):
     """Delete a document by its ID."""
     document = DocumentService.get_document(db, document_id)
     if not document:

@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Cookie
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional, Annotated
 
 from src.db.database import get_db
+from src.core.auth_middleware import RequireAdminOrOwnership, RequireAdminOrUser
 from src.services.emergency_contact_service import EmergencyContactService
 from src.schemas.emergency_contact import EmergencyContactCreate, EmergencyContactUpdate, EmergencyContactResponse
 from src.utils.cache import Cache
@@ -10,8 +11,14 @@ from src.utils.cache import Cache
 router = APIRouter(prefix="/emergency-contacts", tags=["Emergency Contacts"])
 
 @router.post("/", response_model=EmergencyContactResponse, responses={201: {"description": "Emergency contact created successfully."}, 400: {"description": "Invalid input or maximum contacts reached (5)."}})
-def create_contact(contact: EmergencyContactCreate, db: Session = Depends(get_db)):
+def create_contact(
+    contact: EmergencyContactCreate, 
+    db: Session = Depends(get_db), 
+    session_token: Annotated[Optional[str], Cookie()] = None
+):
     """Create a new emergency contact."""
+    RequireAdminOrUser(user_id=contact.user_id,session_token=session_token, db=db)
+    
     # Enforce max 5 contacts per user
     existing_contacts = EmergencyContactService.get_contacts_by_user(db, contact.user_id)
     if len(existing_contacts) >= 5:
@@ -45,7 +52,7 @@ def get_contact_by_id(contact_id: int, db: Session = Depends(get_db)):
     return contact
 
 @router.put("/{contact_id}", response_model=EmergencyContactResponse, responses={200: {"description": "Emergency contact updated successfully."}, 404: {"description": "Contact not found."}})
-def update_contact(contact_id: int, contact_update: EmergencyContactUpdate, db: Session = Depends(get_db)):
+def update_contact(contact_id: int, contact_update: EmergencyContactUpdate, db: Session = Depends(get_db), isAuthenticated: bool = Depends(RequireAdminOrOwnership)):
     """Update an existing emergency contact."""
     contact = EmergencyContactService.update_contact(db, contact_id, contact_update)
     if not contact:
@@ -55,7 +62,7 @@ def update_contact(contact_id: int, contact_update: EmergencyContactUpdate, db: 
     return contact
 
 @router.delete("/{contact_id}", responses={200: {"description": "Emergency contact deleted successfully."}, 404: {"description": "Contact not found."}})
-def delete_contact(contact_id: int, db: Session = Depends(get_db)):
+def delete_contact(contact_id: int, db: Session = Depends(get_db), isAuthenticated: bool = Depends(RequireAdminOrOwnership)):
     """Delete an emergency contact by its ID."""
     contact = EmergencyContactService.get_contact_by_id(db, contact_id)
     if not contact:

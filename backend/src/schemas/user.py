@@ -1,11 +1,13 @@
 from pydantic import BaseModel
-from datetime import datetime
+from datetime import datetime, date
 from typing import Optional
 
 class UserBase(BaseModel):
     """Base user schema with core fields"""
     name: str
-    phone: int
+    phone: str
+    dob: Optional[date] = None  # Date of Birth - optional
+    gender: Optional[str] = None  # Gender - optional
 
 class UserCreate(UserBase):
     """Schema for user registration"""
@@ -13,7 +15,7 @@ class UserCreate(UserBase):
 
 class UserLogin(BaseModel):
     """Schema for user login"""
-    phone: int
+    phone: str
 
 class UserResponse(UserBase):
     """Schema for user response data"""
@@ -34,5 +36,7 @@ class UserSession(BaseModel):
 class UserUpdate(BaseModel):
     """Schema for updating user information"""
     name: Optional[str] = None
-    phone: Optional[int] = None
+    phone: Optional[str] = None
+    dob: Optional[date] = None
+    gender: Optional[str] = None
     is_active: Optional[bool] = None

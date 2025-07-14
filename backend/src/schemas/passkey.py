@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from datetime import datetime
+from datetime import datetime, date
 from typing import Optional, List, Dict, Any
 
 class PasskeyCredentialBase(BaseModel):
@@ -63,8 +63,10 @@ class LoginResponse(BaseModel):
 
 class PasskeyRegistrationRequest(BaseModel):
     """Request to start passkey registration"""
-    user_phone: int = Field(..., description="User phone number for registration")
+    user_phone: str = Field(..., description="User phone number for registration")
     user_name: str = Field(..., description="User name for registration")
+    user_dob: Optional[date] = Field(None, description="User date of birth (optional)")
+    user_gender: Optional[str] = Field(None, description="User gender (optional)")
 
 class PasskeyLoginRequest(BaseModel):
     """Request to start passkey login"""
@@ -72,7 +74,6 @@ class PasskeyLoginRequest(BaseModel):
 
 class PasskeyVerificationResult(BaseModel):
     """Result of passkey verification"""
-    success: bool = Field(..., description="Whether verification was successful")
     user_id: Optional[int] = Field(None, description="User ID if login was successful")
     credential_id: Optional[str] = Field(None, description="Credential ID used")
-    message: str = Field(..., description="Result message")
+    session_expires_at: Optional[datetime] = Field(None, description="Session expiration time if applicable")

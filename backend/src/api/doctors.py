@@ -3,15 +3,15 @@ from sqlalchemy.orm import Session
 from typing import List
 
 from src.db.database import get_db
+from src.core.auth_middleware import RequireAdmin
 from src.services.doctor_service import DoctorService
-
 from src.schemas.doctor import DoctorCreate, DoctorUpdate, DoctorResponse
 from src.utils.cache import Cache
 
 router = APIRouter(prefix="/doctors", tags=["Doctors"])
 
 @router.post("/", response_model=DoctorResponse, responses={201: {"description": "Doctor created successfully."}, 400: {"description": "Invalid input."}})
-def create_doctor(doctor: DoctorCreate, db: Session = Depends(get_db)):
+def create_doctor(doctor: DoctorCreate, db: Session = Depends(get_db), isAdmin = Depends(RequireAdmin)):
     """Create a new doctor record."""
     try:
         result = DoctorService.create_doctor(db, doctor)
@@ -48,7 +48,7 @@ def get_doctor_by_id(doctor_id: int, db: Session = Depends(get_db)):
     return doctor_data
 
 @router.put("/{doctor_id}", response_model=DoctorResponse, responses={200: {"description": "Doctor updated successfully."}, 404: {"description": "Doctor not found."}})
-def update_doctor(doctor_id: int, doctor_update: DoctorUpdate, db: Session = Depends(get_db)):
+def update_doctor(doctor_id: int, doctor_update: DoctorUpdate, db: Session = Depends(get_db), isAdmin = Depends(RequireAdmin)):
     """Update an existing doctor record."""
     doctor = DoctorService.update_doctor(db, doctor_id, doctor_update)
     if not doctor:
@@ -59,7 +59,7 @@ def update_doctor(doctor_id: int, doctor_update: DoctorUpdate, db: Session = Dep
     return doctor
 
 @router.delete("/{doctor_id}", responses={200: {"description": "Doctor deleted successfully."}, 404: {"description": "Doctor not found."}})
-def delete_doctor(doctor_id: int, db: Session = Depends(get_db)):
+def delete_doctor(doctor_id: int, db: Session = Depends(get_db), isAdmin = Depends(RequireAdmin)):
     """Delete a doctor by ID."""
     doctor = DoctorService.get_doctor(db, doctor_id)
     if not doctor:
