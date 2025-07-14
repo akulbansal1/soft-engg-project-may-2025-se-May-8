@@ -7,7 +7,8 @@ from src.schemas.user import UserCreate
 from src.services.user_service import UserService
 from src.core.config import settings
 
-
+## TODO: Add more tests for the Emergency Contact API
+## TODO: Add unit tests for the Emergency Contact service
 class TestEmergencyContacts:
     """Test emergency contact CRUD operations"""
 

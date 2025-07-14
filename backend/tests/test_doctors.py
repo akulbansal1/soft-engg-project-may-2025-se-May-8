@@ -6,7 +6,8 @@ from src.schemas.user import UserCreate
 from src.services.user_service import UserService
 from src.core.config import settings
 
-
+## TODO: Add more tests for the Doctors API
+## TODO: Add unit tests for the Doctor service 
 class TestDoctors:
     """Test doctor CRUD operations"""
 
@@ -29,7 +30,7 @@ class TestDoctors:
 
     def test_doctor_crud(self, client, test_db):
         """Test doctor CRUD operations"""
-        
+
         # Set up admin authentication for CRUD operations
         self.create_admin_session(client)
         # Create doctor

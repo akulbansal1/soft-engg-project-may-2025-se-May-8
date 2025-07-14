@@ -37,7 +37,7 @@ class Settings:
     REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
     
     # App
-    SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-change-this")
+    SECRET_KEY = os.getenv("SECRET_KEY")
     DEBUG = os.getenv("DEBUG", "True").lower() == "true"
     API_V1_STR = "/api/v1"
     PROJECT_NAME = "SE Project API"
@@ -93,6 +93,8 @@ class Settings:
         "/api/v1/auth/passkey/login/verify",
     ]
 
+    if not SECRET_KEY:
+        raise ValueError("SECRET_KEY must be set in environment variables")
 
     ADMIN_SESSION_TOKEN = SECRET_KEY
 

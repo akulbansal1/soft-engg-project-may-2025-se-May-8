@@ -8,7 +8,8 @@ from src.schemas.user import UserCreate
 from src.services.user_service import UserService
 from src.core.config import settings
 
-
+## TODO: Add more tests for the appointment API
+## TODO: Add unit tests for the appointmnet service 
 class TestAppointments:
     """Test appointment CRUD operations"""
 
