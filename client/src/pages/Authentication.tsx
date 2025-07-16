@@ -25,7 +25,6 @@ import {
   Heart,
   ScanFace,
 } from "lucide-react";
-import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
 
@@ -42,8 +41,8 @@ const AuthenticationPage: React.FC = () => {
     dob: "",
     gender: "",
   });
-  const [loading, setLoading] = React.useState(false);
-  const [msg, setMsg] = React.useState("");
+  const [loading] = React.useState(false);
+  const [msg] = React.useState("");
 
   // Your existing handlers would go here
   const handleSignIn = (e: React.FormEvent) => {
