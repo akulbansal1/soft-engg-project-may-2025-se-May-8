@@ -16,6 +16,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useNavigate } from "react-router-dom";
 import { Calendar } from "@/components/ui/calendar";
 
+
 interface Appointment {
   date: string;
   time: string;
@@ -26,7 +27,6 @@ interface Appointment {
   comments?: string;
 }
 
-// Parse date string as local date to avoid timezone offsets
 const parseLocalDate = (dateStr: string): Date => {
   const [year, month, day] = dateStr.split("-").map(Number);
   return new Date(year, month - 1, day);
@@ -105,7 +105,6 @@ const AppointmentsPage: React.FC = () => {
   const todayStr = new Date().toISOString().split("T")[0];
   const navigate = useNavigate();
 
-  // Group appointments by local date string
   const appointmentsByDate = useMemo(() => {
     const map = new Map<string, Appointment[]>();
     appointments.forEach((appt) => {
@@ -132,35 +131,82 @@ const AppointmentsPage: React.FC = () => {
     [appointments, searchTerm]
   );
 
-  const filteredPast = useMemo(
-    () =>
-      appointments
-        .filter((a) => a.date < todayStr)
-        .filter((a) =>
-          [
-            a.date,
-            a.time,
-            a.doctor,
-            a.purpose,
-            a.location,
-            a.prescription ?? "",
-            a.comments ?? "",
-          ].some((f) => f.toLowerCase().includes(searchTerm.toLowerCase()))
-        )
-        .sort((a, b) => b.date.localeCompare(a.date)),
-    [appointments, searchTerm]
-  );
+const filteredPast = useMemo(() => {
+  return appointments
+    .filter((a) => a.date < todayStr)
+    .filter((a) => {
+      const fields = [
+        a.date,
+        a.time,
+        a.doctor,
+        a.purpose,
+        a.location,
+        a.prescription ?? "",
+        a.comments ?? "",
+      ];
+
+      return fields.some((f) =>
+        f?.toString().toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    })
+    .sort((a, b) => b.date.localeCompare(a.date));
+}, [appointments, searchTerm, todayStr]);
+
 
   const openView = (idx: number) => {
     setDetailIndex(idx);
     setViewOpen(true);
   };
 
+  const renderList = (list: Appointment[], isPast = false) => (
+    <div className="space-y-4">
+      {list.length === 0 ? (
+        <div className="text-center py-8 text-muted-foreground">
+          <p>
+            {isPast ? "No past appointments." : "No upcoming appointments."}
+          </p>
+        </div>
+      ) : (
+        list.map((appt, idx) => (
+          <Card key={idx} className="p-4">
+            <div className="flex justify-between items-start">
+              <div>
+                <p className="font-semibold text-lg mb-1">
+                  {appt.date} @ {appt.time}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {appt.doctor} – {appt.purpose}
+                </p>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => openView(appointments.indexOf(appt))}
+              >
+                <Eye size={16} />
+              </Button>
+            </div>
+            {isPast && (
+              <div className="mt-2 space-y-2">
+                <div className="p-2 bg-muted rounded text-sm">
+                  <strong>Prescription:</strong> {appt.prescription || "None"}
+                </div>
+                <div className="p-2 bg-muted rounded text-sm">
+                  <strong>Comments:</strong> {appt.comments || "None"}
+                </div>
+              </div>
+            )}
+          </Card>
+        ))
+      )}
+    </div>
+  );
+
   return (
     <div className="h-[calc(100dvh-110px)] flex flex-col space-y-6 overflow-hidden">
       {/* Header */}
       <div className="flex items-center space-x-3">
-        <h2 className="text-2xl font-semibold">
+        <h2 className="text-2xl font-semibold flex items-center">
           <Button
             variant="ghost"
             size="sm"
@@ -200,10 +246,8 @@ const AppointmentsPage: React.FC = () => {
           <TabsTrigger value="past">Past ({filteredPast.length})</TabsTrigger>
         </TabsList>
 
-        {/* Calendar View */}
         <TabsContent value="calendar" className="flex-1 overflow-hidden">
           <div className="flex flex-col md:flex-row h-full gap-6">
-            {/* Calendar */}
             <div className="flex-1 flex justify-center items-center">
               <Calendar
                 mode="single"
@@ -211,16 +255,31 @@ const AppointmentsPage: React.FC = () => {
                 onSelect={setSelectedDate}
                 className="w-full h-full min-h-[250px] md:min-h-[350px]"
                 modifiers={{
-                  hasAppointment: (date) =>
-                    appointmentsByDate.has(date.toDateString()),
+                  hasFutureAppointment: (date) => {
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    return (
+                      appointmentsByDate.has(date.toDateString()) &&
+                      date >= today
+                    );
+                  },
+                  hasPastAppointment: (date) => {
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    return (
+                      appointmentsByDate.has(date.toDateString()) &&
+                      date < today
+                    );
+                  },
                 }}
                 modifiersClassNames={{
-                  hasAppointment: "bg-blue-100 dark:bg-blue-900/50 rounded-lg",
+                  hasFutureAppointment:
+                    "bg-blue-100 dark:bg-blue-900/50 rounded-lg",
+                  hasPastAppointment:
+                    "bg-green-100 dark:bg-green-900/50 rounded-lg",
                 }}
               />
             </div>
-
-            {/* Daily List */}
             <div className="flex-1 flex flex-col">
               <Card className="flex-1 bg-transparent shadow-none">
                 <CardHeader>
@@ -259,7 +318,6 @@ const AppointmentsPage: React.FC = () => {
           </div>
         </TabsContent>
 
-        {/* Upcoming Tab */}
         <TabsContent
           value="upcoming"
           className="flex-1 flex flex-col mt-4 overflow-hidden"
@@ -270,34 +328,7 @@ const AppointmentsPage: React.FC = () => {
             </CardHeader>
             <CardContent className="flex-1 overflow-hidden">
               <ScrollArea className="h-full pr-4">
-                {filteredUpcoming.length === 0 ? (
-                  <p className="text-muted-foreground text-center py-6">
-                    No upcoming appointments.
-                  </p>
-                ) : (
-                  filteredUpcoming.map((appt, idx) => (
-                    <div
-                      key={idx}
-                      className="flex justify-between items-center border-b py-3"
-                    >
-                      <div>
-                        <p className="font-medium">
-                          {appt.date} @ {appt.time}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          {appt.doctor} – {appt.purpose}
-                        </p>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => openView(appointments.indexOf(appt))}
-                      >
-                        <Eye size={16} />
-                      </Button>
-                    </div>
-                  ))
-                )}
+                {renderList(filteredUpcoming)}
               </ScrollArea>
             </CardContent>
           </Card>
@@ -314,50 +345,13 @@ const AppointmentsPage: React.FC = () => {
             </CardHeader>
             <CardContent className="flex-1 overflow-hidden">
               <ScrollArea className="h-full pr-4">
-                {filteredPast.length === 0 ? (
-                  <p className="text-muted-foreground text-center py-6">
-                    No past appointments.
-                  </p>
-                ) : (
-                  filteredPast.map((appt, idx) => (
-                    <div key={idx} className="border-b py-3">
-                      <div className="flex justify-between items-center">
-                        <div>
-                          <p className="font-medium">
-                            {appt.date} @ {appt.time}
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            {appt.doctor} – {appt.purpose}
-                          </p>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => openView(appointments.indexOf(appt))}
-                        >
-                          <Eye size={16} />
-                        </Button>
-                      </div>
-                      <div className="mt-2 space-y-2">
-                        <div className="p-2 bg-muted rounded text-sm">
-                          <strong>Prescription:</strong>{" "}
-                          {appt.prescription || "None"}
-                        </div>
-                        <div className="p-2 bg-muted rounded text-sm">
-                          <strong>Doctor's Comments:</strong>{" "}
-                          {appt.comments || "None"}
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                )}
+                {renderList(filteredPast, true)}
               </ScrollArea>
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
 
-      {/* Appointment Details Dialog */}
       <Dialog open={viewOpen} onOpenChange={setViewOpen}>
         <DialogContent>
           <DialogHeader>
