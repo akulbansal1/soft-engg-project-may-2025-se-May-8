@@ -15,7 +15,7 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useNavigate } from "react-router-dom";
 import { Calendar } from "@/components/ui/calendar";
-import { Calendar } from "@/components/ui/calendar";
+
 
 interface Appointment {
   date: string;
@@ -103,9 +103,6 @@ const AppointmentsPage: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [tab, setTab] = useState("calendar");
   const todayStr = new Date().toISOString().split("T")[0];
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
-  const [tab, setTab] = useState("calendar");
-  const todayStr = new Date().toISOString().split("T")[0];
   const navigate = useNavigate();
 
   const appointmentsByDate = useMemo(() => {
@@ -134,41 +131,27 @@ const AppointmentsPage: React.FC = () => {
     [appointments, searchTerm]
   );
 
-  const filteredPast = useMemo(
-    () =>
-      appointments
-        .filter((a) => a.date < todayStr)
-        .filter((a) =>
-          [
-            a.date,
-            a.time,
-            a.doctor,
-            a.purpose,
-            a.location,
-            a.prescription ?? "",
-            a.comments ?? "",
-          ].some((f) => f.toLowerCase().includes(searchTerm.toLowerCase()))
-  const filteredPast = useMemo(
-    () =>
-      appointments
-        .filter((a) => a.date < todayStr)
-        .filter((a) =>
-          [
-            a.date,
-            a.time,
-            a.doctor,
-            a.purpose,
-            a.location,
-            a.prescription ?? "",
-            a.comments ?? "",
-          ].some((f) => f.toLowerCase().includes(searchTerm.toLowerCase()))
-        )
-        .sort((a, b) => b.date.localeCompare(a.date)),
-    [appointments, searchTerm]
-  );
-        .sort((a, b) => b.date.localeCompare(a.date)),
-    [appointments, searchTerm]
-  );
+const filteredPast = useMemo(() => {
+  return appointments
+    .filter((a) => a.date < todayStr)
+    .filter((a) => {
+      const fields = [
+        a.date,
+        a.time,
+        a.doctor,
+        a.purpose,
+        a.location,
+        a.prescription ?? "",
+        a.comments ?? "",
+      ];
+
+      return fields.some((f) =>
+        f?.toString().toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    })
+    .sort((a, b) => b.date.localeCompare(a.date));
+}, [appointments, searchTerm, todayStr]);
+
 
   const openView = (idx: number) => {
     setDetailIndex(idx);
@@ -240,7 +223,6 @@ const AppointmentsPage: React.FC = () => {
       <div className="relative">
         <Search
           className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-          className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
           size={16}
         />
         <Input
@@ -256,8 +238,6 @@ const AppointmentsPage: React.FC = () => {
         onValueChange={setTab}
         className="flex-1 flex flex-col overflow-hidden"
       >
-        <TabsList className="grid grid-cols-3 w-full">
-          <TabsTrigger value="calendar">Calendar</TabsTrigger>
         <TabsList className="grid grid-cols-3 w-full">
           <TabsTrigger value="calendar">Calendar</TabsTrigger>
           <TabsTrigger value="upcoming">
@@ -343,7 +323,6 @@ const AppointmentsPage: React.FC = () => {
           className="flex-1 flex flex-col mt-4 overflow-hidden"
         >
           <Card className="flex-1 flex flex-col overflow-hidden bg-transparent">
-          <Card className="flex-1 flex flex-col overflow-hidden bg-transparent">
             <CardHeader>
               <CardTitle>Upcoming Appointments</CardTitle>
             </CardHeader>
@@ -360,7 +339,6 @@ const AppointmentsPage: React.FC = () => {
           value="past"
           className="flex-1 flex flex-col mt-4 overflow-hidden"
         >
-          <Card className="flex-1 flex flex-col overflow-hidden bg-transparent">
           <Card className="flex-1 flex flex-col overflow-hidden bg-transparent">
             <CardHeader>
               <CardTitle>Past Appointments</CardTitle>
@@ -407,7 +385,6 @@ const AppointmentsPage: React.FC = () => {
                     {appointments[detailIndex].location}
                   </p>
                 </div>
-                {appointments[detailIndex].date < todayStr && (
                 {appointments[detailIndex].date < todayStr && (
                   <>
                     <div className="p-4 bg-muted rounded-lg">

@@ -239,8 +239,6 @@ const MedicinesPage: React.FC = () => {
 
   const navigate = useNavigate();
 
-  const navigate = useNavigate();
-
   return (
     <div className="h-[calc(100dvh-110px)] flex flex-col space-y-6 overflow-hidden">
       <div className="flex justify-between items-center">
@@ -437,7 +435,6 @@ const MedicinesPage: React.FC = () => {
         </TabsList>
         <TabsContent value="active" className="flex-1 mt-4 overflow-hidden">
           <Card className="flex flex-col h-full bg-transparent">
-          <Card className="flex flex-col h-full bg-transparent">
             <CardHeader>
               <CardTitle>Active Medications</CardTitle>
             </CardHeader>
@@ -449,7 +446,6 @@ const MedicinesPage: React.FC = () => {
           </Card>
         </TabsContent>
         <TabsContent value="past" className="flex-1 mt-4 overflow-hidden">
-          <Card className="flex flex-col h-full bg-transparent">
           <Card className="flex flex-col h-full bg-transparent">
             <CardHeader>
               <CardTitle>Past Medications</CardTitle>
