@@ -126,6 +126,37 @@
   color: black;
 }
 
+/* Custom react-calendar styling */
+.react-calendar {
+  background-color: transparent !important;
+}
+
+.react-calendar__tile {
+  padding: 0.6rem 0.8rem;
+  border-radius: 6px;
+  transition: background 0.2s;
+}
+
+.react-calendar__tile--now {
+  background: rgba(59, 130, 246, 0.1); /* blue-500 bg-opacity-10 */
+  border-radius: 6px;
+}
+
+.react-calendar__tile--active {
+  background-color: #3b82f6 !important; /* Tailwind blue-500 */
+  color: white !important;
+  border-radius: 6px;
+}
+
+.dark .react-calendar__tile--now {
+  background-color: rgba(59, 130, 246, 0.2) !important;
+}
+
+.dark .react-calendar__tile--active {
+  background-color: #2563eb !important;
+  color: white !important;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
