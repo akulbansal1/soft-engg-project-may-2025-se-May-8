@@ -24,6 +24,10 @@ python-jose[cryptography]==3.3.0
 # SMS Verification
 twilio==9.3.6
 
+# File Upload and Storage
+boto3==1.35.65
+python-multipart==0.0.16
+
 # Development and Testing
 pytest==8.0.0
 pytest-asyncio==0.23.5

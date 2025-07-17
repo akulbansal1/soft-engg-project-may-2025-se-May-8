@@ -66,6 +66,14 @@ class Settings:
     SMS_VERIFICATION_EXPIRY = int(timedelta(minutes=10).total_seconds())  # 10 minutes
     SMS_VERIFICATION_CACHE_EXPIRY = int(timedelta(hours=24).total_seconds())  # 24 hours for verified status
 
+    # AWS S3 Configuration
+    AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
+    AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
+    AWS_REGION = os.getenv("AWS_REGION", "eu-north-1")
+    S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME", "iitm-se-project")
+
+    MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB in bytes
+
     # Celery
     CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/0")
     CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", "redis://localhost:6379/0")

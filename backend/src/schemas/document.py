@@ -20,3 +20,8 @@ class DocumentResponse(DocumentBase):
 
     class Config:
         from_attributes = True
+
+class DocumentUploadResponse(BaseModel):
+    file_url: str = Field(..., example="https://example.com/file.pdf", description="URL of the uploaded file")
+    filename: str = Field(..., example="document.pdf", description="Original filename")
+    message: str = Field(default="File uploaded successfully", description="Success message")

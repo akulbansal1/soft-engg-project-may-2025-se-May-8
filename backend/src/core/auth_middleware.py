@@ -187,14 +187,17 @@ class AuthMiddleware:
             )
 
         # Check user ownership for new resources (when user_id is provided)
-        if user_id and current_user.id == int(user_id):
-            return True
+        if user_id:
+            if current_user.id == int(user_id):
+                return True
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="You do not have permission to access this resource"
+                )
         else:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You do not have permission to access this resource"
-            )
-   
+            # If no user_id provided, just return current user
+            return current_user
 
 # Convenience aliases for easy import
 RequireAuth = AuthMiddleware.get_current_user
