@@ -8,6 +8,7 @@ from src.services.medicine_service import MedicineService
 from src.services.ai_service import AIService
 from src.schemas.medicine import MedicineCreate, MedicineUpdate, MedicineResponse, MedicineTranscriptionResponse
 from src.utils.cache import Cache
+from src.models.user import User
 
 router = APIRouter(prefix="/medicines", tags=["Medicines"])
 
@@ -23,7 +24,7 @@ router = APIRouter(prefix="/medicines", tags=["Medicines"])
         },
     },
 )
-async def transcribe_prescription(file: UploadFile = File(...)):
+async def transcribe_prescription(file: UploadFile = File(...), current_user: User = Depends(RequireAdminOrUser)):
     """Convert audio prescription to structured JSON."""
     if not file.content_type.startswith('audio/'):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid audio file format.")
