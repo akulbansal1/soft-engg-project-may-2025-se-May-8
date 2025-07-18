@@ -37,3 +37,6 @@ httpx==0.28.1
 
 ## Authentication
 webauthn==2.6.0
+
+# Gemini
+google-genai==1.25.0
