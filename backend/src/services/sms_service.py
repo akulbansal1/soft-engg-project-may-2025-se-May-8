@@ -284,7 +284,48 @@ class SMSService:
         # In a real implementation, you might want to scan cache keys
         # and clean up expired entries
         return 0
-
+    
+    def send_emergency_message(self, phone: str, user_name: str = "Someone") -> Dict[str, Any]:
+        """
+        Send emergency SOS message to a phone number
+        
+        Args:
+            phone: Phone number to send emergency message to
+            user_name: Name of the person in emergency (optional)
+            
+        Returns:
+            Dict containing success status and message
+            
+        Raises:
+            HTTPException: If SMS sending fails
+        """
+        try:
+            # Create emergency message
+            message_body = f"🚨 EMERGENCY ALERT 🚨\n\n{user_name} has triggered an emergency SOS signal and may need immediate assistance. Please check on them or contact emergency services if necessary.\n\nTime: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+            
+            # Send SMS via Twilio
+            message = self.client.messages.create(
+                body=message_body,
+                from_=self.from_phone,
+                to=phone
+            )
+            
+            return {
+                'success': True,
+                'message': f'Emergency alert sent to {phone}',
+                'message_sid': message.sid
+            }
+            
+        except TwilioException as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Failed to send emergency SMS to {phone}: {str(e)}"
+            )
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Unexpected error sending emergency SMS to {phone}: {str(e)}"
+            )
 
 # Create a lazy singleton instance
 _sms_service_instance = None
