@@ -1,14 +1,39 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Cookie
+from fastapi import APIRouter, Depends, HTTPException, status, Cookie, File, UploadFile
 from sqlalchemy.orm import Session
 from typing import List, Optional, Annotated
 
 from src.db.database import get_db
 from src.core.auth_middleware import RequireAdminOrOwnership, RequireAdminOrUser
 from src.services.medicine_service import MedicineService
-from src.schemas.medicine import MedicineCreate, MedicineUpdate, MedicineResponse
+from src.services.ai_service import AIService
+from src.schemas.medicine import MedicineCreate, MedicineUpdate, MedicineResponse, MedicineTranscriptionResponse
 from src.utils.cache import Cache
+from src.models.user import User
 
 router = APIRouter(prefix="/medicines", tags=["Medicines"])
+
+
+@router.post(
+    "/transcribe",
+    response_model=MedicineTranscriptionResponse,
+    responses={
+        200: {"description": "Prescription transcribed successfully."},
+        400: {"description": "Invalid audio file."},
+        429: {
+            "description": "RESOURCE_EXHAUSTED: You've exceeded the rate limit. See https://ai.google.dev/gemini-api/docs/rate-limits for details."
+        },
+    },
+)
+async def transcribe_prescription(file: UploadFile = File(...), current_user: User = Depends(RequireAdminOrUser)):
+    """Convert audio prescription to structured JSON."""
+    if not file.content_type.startswith('audio/'):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid audio file format.")
+    audio_bytes = await file.read()
+    try:
+        transcription = AIService.transcribe_prescription(audio_bytes, file.content_type)
+        return transcription
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to transcribe audio: {str(e)}")
 
 @router.post("/", response_model=MedicineResponse, responses={201: {"description": "Medicine created successfully."}, 400: {"description": "Invalid input."}})
 def create_medicine(

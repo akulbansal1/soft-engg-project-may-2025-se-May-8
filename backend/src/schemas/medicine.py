@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field
 from typing import Optional
-from datetime import date
+from datetime import date, datetime
 
 class MedicineBase(BaseModel):
     name: str = Field(..., example="Paracetamol", description="Name of the medicine")
@@ -27,3 +27,12 @@ class MedicineResponse(MedicineBase):
 
     class Config:
         from_attributes = True
+        
+class MedicineTranscriptionResponse(BaseModel):
+    name: Optional[str] = Field(None, description="Name of the medicine")
+    dosage: Optional[str] = Field(None, description="Dosage information")
+    frequency: Optional[str] = Field(None, description="Frequency of intake")
+    # For constrained generation, Gemini requires datetime, and does not support date directly
+    start_date: Optional[datetime] = Field(None, description="Start date of the medicine course (ISO 8601 datetime)")
+    end_date: Optional[datetime] = Field(None, description="End date of the medicine course (ISO 8601 datetime)")
+    notes: Optional[str] = Field(None, description="Additional notes or instructions")

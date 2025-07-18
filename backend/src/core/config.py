@@ -72,6 +72,9 @@ class Settings:
     AWS_REGION = os.getenv("AWS_REGION", "eu-north-1")
     S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME", "iitm-se-project")
 
+    # Gemini
+    GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+
     MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB in bytes
 
     # Celery
