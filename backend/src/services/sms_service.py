@@ -70,11 +70,11 @@ class SMSService:
             # Create SMS message
             message_body = f"Your verification code is: {verification_code}. This code will expire in 10 minutes."
             
-            # Send SMS via Twilio
+            # Send WhatsApp message via Twilio
             message = self.client.messages.create(
                 body=message_body,
-                from_=self.from_phone,
-                to=phone
+                from_=f"whatsapp:{self.from_phone}",
+                to=f"whatsapp:{phone}"
             )
             
             # Store verification code in cache
@@ -103,12 +103,12 @@ class SMSService:
         except TwilioException as e:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Failed to send SMS: {str(e)}"
+                detail=f"Failed to send WhatsApp message: {str(e)}"
             )
         except Exception as e:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Unexpected error sending SMS: {str(e)}"
+                detail=f"Unexpected error sending WhatsApp message: {str(e)}"
             )
     
     def verify_code(self, phone: str, code: str) -> Dict[str, Any]:
@@ -303,11 +303,11 @@ class SMSService:
             # Create emergency message
             message_body = f"🚨 EMERGENCY ALERT 🚨\n\n{user_name} has triggered an emergency SOS signal and may need immediate assistance. Please check on them or contact emergency services if necessary.\n\nTime: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
             
-            # Send SMS via Twilio
+            # Send WhatsApp message via Twilio
             message = self.client.messages.create(
                 body=message_body,
-                from_=self.from_phone,
-                to=phone
+                from_=f"whatsapp:{self.from_phone}",
+                to=f"whatsapp:{phone}"
             )
             
             return {
@@ -319,12 +319,12 @@ class SMSService:
         except TwilioException as e:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Failed to send emergency SMS to {phone}: {str(e)}"
+                detail=f"Failed to send emergency WhatsApp message to {phone}: {str(e)}"
             )
         except Exception as e:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Unexpected error sending emergency SMS to {phone}: {str(e)}"
+                detail=f"Unexpected error sending emergency WhatsApp message to {phone}: {str(e)}"
             )
 
 # Create a lazy singleton instance
