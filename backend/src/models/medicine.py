@@ -12,6 +12,7 @@ class Medicine(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     appointment_id = Column(Integer, ForeignKey("appointments.id"), nullable=True, index=True)
+    doctor_id = Column(Integer, ForeignKey("doctors.id"), nullable=True, index=True)
     name = Column(String, nullable=False)
     dosage = Column(String, nullable=False)
     frequency = Column(String, nullable=False)
@@ -22,6 +23,7 @@ class Medicine(Base):
     # Relationships
     user = relationship("User", foreign_keys=[user_id], backref="medicines")
     appointment = relationship("Appointment", back_populates="medicines")
+    doctor = relationship("Doctor", backref="medicines")
 
     def __repr__(self):
         return f"<Medicine(id={self.id}, user_id={self.user_id}, name='{self.name}')>"
