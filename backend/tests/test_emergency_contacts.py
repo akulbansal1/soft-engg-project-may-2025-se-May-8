@@ -2,6 +2,7 @@
 Emergency Contact API tests
 """
 import pytest
+from unittest.mock import patch, MagicMock
 from src.models.user import User
 from src.schemas.user import UserCreate
 from src.services.user_service import UserService
@@ -79,3 +80,63 @@ class TestEmergencyContacts:
         response = client.get(f"/api/v1/emergency-contacts/user/{user_id}")
         assert response.status_code == 200
         assert response.json() == []
+
+    @patch('src.services.sms_service.SMSService.send_emergency_message')
+    def test_sos_trigger(self, mock_send_emergency, client, test_db):
+        """Test SOS trigger endpoint"""
+        # Set up authenticated session
+        user, session_token = self.create_authenticated_session(client, test_db)
+        user_id = user.id
+        
+        # Create emergency contacts
+        contact1_data = {
+            "name": "Emergency Contact 1",
+            "relation": "Family",
+            "phone": "+1234567890",
+            "user_id": user_id
+        }
+        contact2_data = {
+            "name": "Emergency Contact 2", 
+            "relation": "Friend",
+            "phone": "+0987654321",
+            "user_id": user_id
+        }
+        
+        # Create contacts
+        client.post("/api/v1/emergency-contacts/", json=contact1_data)
+        client.post("/api/v1/emergency-contacts/", json=contact2_data)
+        
+        # Mock the SMS service to return success
+        mock_send_emergency.return_value = {
+            'success': True,
+            'message': 'Emergency alert sent via WhatsApp to +1234567890',
+            'message_sid': 'test_sid'
+        }
+        
+        # Trigger SOS
+        response = client.post(f"/api/v1/users/{user_id}/sos/trigger")
+        
+        # Verify response
+        assert response.status_code == 200
+        sos_response = response.json()
+        assert sos_response["success"] is True
+        assert sos_response["contacts_notified"] == 2
+        assert len(sos_response["failed_notifications"]) == 0
+        assert "Emergency SOS triggered!" in sos_response["message"]
+        
+        # Verify SMS service was called twice (once for each contact)
+        assert mock_send_emergency.call_count == 2
+
+    def test_sos_trigger_no_contacts(self, client, test_db):
+        """Test SOS trigger with no emergency contacts"""
+        # Set up authenticated session
+        user, session_token = self.create_authenticated_session(client, test_db)
+        user_id = user.id
+        
+        # Trigger SOS without any emergency contacts
+        response = client.post(f"/api/v1/users/{user_id}/sos/trigger")
+        
+        # Should return 400 error
+        assert response.status_code == 400
+        error_response = response.json()
+        assert "No emergency contacts found" in error_response["detail"]
