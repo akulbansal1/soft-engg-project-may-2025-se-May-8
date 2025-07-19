@@ -12,6 +12,8 @@ class MedicineBase(BaseModel):
 
 class MedicineCreate(MedicineBase):
     user_id: int = Field(..., example=1, description="ID of the user taking the medicine")
+    doctor_id: Optional[int] = Field(None, example=1, description="ID of the doctor who issued the medicine")
+    appointment_id: Optional[int] = Field(None, example=1, description="ID of the appointment associated with the medicine")
 
 class MedicineUpdate(BaseModel):
     name: Optional[str] = Field(None, example="Paracetamol")
@@ -24,6 +26,8 @@ class MedicineUpdate(BaseModel):
 class MedicineResponse(MedicineBase):
     id: int = Field(..., example=1)
     user_id: int = Field(..., example=1)
+    doctor_id: Optional[int] = Field(None, example=1)
+    appointment_id: Optional[int] = Field(None, example=1)
 
     class Config:
         from_attributes = True
