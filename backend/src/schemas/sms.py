@@ -3,8 +3,8 @@ from typing import Optional
 import re
 
 class SMSVerificationRequest(BaseModel):
-    """Schema for SMS verification initiation request"""
-    phone: str = Field(..., description="Phone number to send verification code to")
+    """Schema for SMS verification initiation request. Used to request a verification code via SMS."""
+    phone: str = Field(..., example="+1234567890", description="Phone number to send verification code to (E.164 format)")
     
     @field_validator('phone')
     @classmethod
@@ -40,9 +40,9 @@ class SMSVerificationRequest(BaseModel):
         }
 
 class SMSVerificationCodeRequest(BaseModel):
-    """Schema for SMS verification code submission"""
-    phone: str = Field(..., description="Phone number that received the verification code")
-    code: str = Field(..., min_length=4, max_length=8, description="Verification code received via SMS")
+    """Schema for SMS verification code submission. Used to verify the code received via SMS."""
+    phone: str = Field(..., example="+1234567890", description="Phone number that received the verification code (E.164 format)")
+    code: str = Field(..., min_length=4, max_length=8, example="123456", description="Verification code received via SMS (4-8 digits)")
     
     @field_validator('phone')
     @classmethod
@@ -87,10 +87,10 @@ class SMSVerificationCodeRequest(BaseModel):
         }
 
 class SMSVerificationResponse(BaseModel):
-    """Schema for SMS verification response"""
-    success: bool = Field(..., description="Whether the operation was successful")
-    message: str = Field(..., description="Response message")
-    expires_in: Optional[int] = Field(None, description="Time in seconds until verification expires")
+    """Schema for SMS verification response. Indicates if the code was sent and when it expires."""
+    success: bool = Field(..., example=True, description="Whether the operation was successful")
+    message: str = Field(..., example="Verification code sent successfully", description="Response message")
+    expires_in: Optional[int] = Field(None, example=600, description="Time in seconds until verification expires (optional)")
     
     class Config:
         json_schema_extra = {
@@ -102,10 +102,10 @@ class SMSVerificationResponse(BaseModel):
         }
 
 class SMSVerificationStatusResponse(BaseModel):
-    """Schema for SMS verification status response"""
-    verified: bool = Field(..., description="Whether the phone number is verified")
-    message: str = Field(..., description="Response message")
-    expires_at: Optional[str] = Field(None, description="When the verification status expires")
+    """Schema for SMS verification status response. Indicates if the phone number is verified and expiry info."""
+    verified: bool = Field(..., example=True, description="Whether the phone number is verified")
+    message: str = Field(..., example="Phone number successfully verified", description="Response message")
+    expires_at: Optional[str] = Field(None, example="2025-06-28T22:30:00Z", description="When the verification status expires (ISO 8601, optional)")
     
     class Config:
         json_schema_extra = {
