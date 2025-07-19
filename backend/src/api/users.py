@@ -49,9 +49,7 @@ def trigger_sos(user_id: int, db: Session = Depends(get_db), current_user = Depe
     # Get SMS service
     sms_service = get_sms_service()
     
-    # Get user info for personalized message
-    user = UserService.get_user(db, user_id)
-    user_name = getattr(user, 'name', None) or getattr(user, 'email', 'Someone')
+    user_name = getattr(current_user, 'name', None) or getattr(current_user, 'email', 'Someone')
     
     # Send emergency messages to all contacts
     contacts_notified = 0
