@@ -7,6 +7,12 @@ from .documents import router as documents_router
 from .doctors import router as doctors_router
 from .appointments import router as appointments_router
 
+# Shared authentication error responses for endpoints requiring authentication/authorization
+AUTH_ERROR_RESPONSES = {
+	401: {"description": "Not authenticated. Valid authentication credentials were not provided."},
+	403: {"description": "Forbidden. You do not have permission to access this resource."}
+}
+
 api_router = APIRouter()
 
 # Include all API routers

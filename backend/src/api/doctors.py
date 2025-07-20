@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Path
+from src.api.constants import AUTH_ERROR_RESPONSES
 from sqlalchemy.orm import Session
 from typing import List
 
@@ -10,7 +11,15 @@ from src.utils.cache import Cache
 
 router = APIRouter(prefix="/doctors", tags=["Doctors"])
 
-@router.post("/", response_model=DoctorResponse, responses={201: {"description": "Doctor created successfully."}, 400: {"description": "Invalid input."}})
+@router.post(
+    "/",
+    response_model=DoctorResponse,
+    responses={
+        201: {"description": "Doctor created successfully."},
+        400: {"description": "Invalid input."},
+        **AUTH_ERROR_RESPONSES
+    }
+)
 def create_doctor(
     doctor: DoctorCreate,
     db: Session = Depends(get_db),
@@ -66,7 +75,15 @@ def get_doctor_by_id(
     Cache.set(cache_key, doctor_data.model_dump(), expiry=300)
     return doctor_data
 
-@router.put("/{doctor_id}", response_model=DoctorResponse, responses={200: {"description": "Doctor updated successfully."}, 404: {"description": "Doctor not found."}})
+@router.put(
+    "/{doctor_id}",
+    response_model=DoctorResponse,
+    responses={
+        200: {"description": "Doctor updated successfully."},
+        404: {"description": "Doctor not found."},
+        **AUTH_ERROR_RESPONSES
+    }
+)
 def update_doctor(
     doctor_id: int = Path(..., description="ID of the doctor to update"),
     doctor_update: DoctorUpdate = ...,
@@ -86,7 +103,14 @@ def update_doctor(
     Cache.delete(f"doctor_{doctor_id}")
     return doctor
 
-@router.delete("/{doctor_id}", responses={200: {"description": "Doctor deleted successfully."}, 404: {"description": "Doctor not found."}})
+@router.delete(
+    "/{doctor_id}",
+    responses={
+        200: {"description": "Doctor deleted successfully."},
+        404: {"description": "Doctor not found."},
+        **AUTH_ERROR_RESPONSES
+    }
+)
 def delete_doctor(
     doctor_id: int = Path(..., description="ID of the doctor to delete"),
     db: Session = Depends(get_db),

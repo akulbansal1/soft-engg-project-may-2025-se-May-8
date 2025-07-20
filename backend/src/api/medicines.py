@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Cookie, File, UploadFile, Path
+from src.api.constants import AUTH_ERROR_RESPONSES
 from sqlalchemy.orm import Session
 from typing import List, Optional, Annotated
 
@@ -22,6 +23,7 @@ router = APIRouter(prefix="/medicines", tags=["Medicines"])
         429: {
             "description": "RESOURCE_EXHAUSTED: You've exceeded the rate limit. See https://ai.google.dev/gemini-api/docs/rate-limits for details."
         },
+        **AUTH_ERROR_RESPONSES
     },
 )
 async def transcribe_prescription(file: UploadFile = File(...), current_user: User = Depends(RequireAdminOrUser)):
@@ -41,7 +43,15 @@ async def transcribe_prescription(file: UploadFile = File(...), current_user: Us
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to transcribe audio: {str(e)}")
 
-@router.post("/", response_model=MedicineResponse, responses={201: {"description": "Medicine created successfully."}, 400: {"description": "Invalid input."}})
+@router.post(
+    "/",
+    response_model=MedicineResponse,
+    responses={
+        201: {"description": "Medicine created successfully."},
+        400: {"description": "Invalid input."},
+        **AUTH_ERROR_RESPONSES
+    }
+)
 def create_medicine(
     medicine: MedicineCreate, 
     db: Session = Depends(get_db), 
@@ -96,7 +106,15 @@ def get_medicine_by_id(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Medicine not found")
     return medicine
 
-@router.put("/{medicine_id}", response_model=MedicineResponse, responses={200: {"description": "Medicine updated successfully."}, 404: {"description": "Medicine not found."}})
+@router.put(
+    "/{medicine_id}",
+    response_model=MedicineResponse,
+    responses={
+        200: {"description": "Medicine updated successfully."},
+        404: {"description": "Medicine not found."},
+        **AUTH_ERROR_RESPONSES
+    }
+)
 def update_medicine(
     medicine_id: int = Path(..., description="ID of the medicine to update"),
     medicine_update: MedicineUpdate = None,
@@ -114,7 +132,14 @@ def update_medicine(
     Cache.delete(f"medicines_user_{medicine.user_id}")
     return medicine
 
-@router.delete("/{medicine_id}", responses={200: {"description": "Medicine deleted successfully."}, 404: {"description": "Medicine not found."}})
+@router.delete(
+    "/{medicine_id}",
+    responses={
+        200: {"description": "Medicine deleted successfully."},
+        404: {"description": "Medicine not found."},
+        **AUTH_ERROR_RESPONSES
+    }
+)
 def delete_medicine(
     medicine_id: int = Path(..., description="ID of the medicine to delete"),
     db: Session = Depends(get_db),

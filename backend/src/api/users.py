@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from src.api.constants import AUTH_ERROR_RESPONSES
 from fastapi import Query, Path
 from sqlalchemy.orm import Session
 from typing import List
@@ -14,7 +15,13 @@ from src.core.auth_middleware import RequireAuth, RequireOwnership
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
-@router.get("/", response_model=List[UserResponse])
+@router.get(
+    "/",
+    response_model=List[UserResponse],
+    responses={
+        **AUTH_ERROR_RESPONSES
+    }
+)
 def get_users(
     skip: int = Query(0, description="Number of records to skip for pagination"),
     limit: int = Query(100, description="Maximum number of users to return"),
@@ -28,7 +35,13 @@ def get_users(
     users_data = [UserResponse.model_validate(user) for user in users]
     return users_data
 
-@router.get("/{user_id}", response_model=UserResponse)
+@router.get(
+    "/{user_id}",
+    response_model=UserResponse,
+    responses={
+        **AUTH_ERROR_RESPONSES
+    }
+)
 def get_user(
     user_id: int = Path(..., description="ID of the user to retrieve"),
     db: Session = Depends(get_db),
@@ -43,10 +56,16 @@ def get_user(
         raise HTTPException(status_code=404, detail="User not found")
     return UserResponse.model_validate(user)
 
-@router.post("/{user_id}/sos/trigger", response_model=SOSResponse)
+@router.post(
+    "/{user_id}/sos/trigger",
+    response_model=SOSResponse,
+    responses={
+        **AUTH_ERROR_RESPONSES
+    }
+)
 def trigger_sos(user_id: int, db: Session = Depends(get_db), current_user = Depends(RequireOwnership)):
     """
-    Trigger an SOS alert for a user. Sends emergency SMS messages to all of the user's registered emergency contacts. Only the user or an admin can trigger this. Returns the number of contacts notified and any failures.
+    Trigger an SOS alert for a user. Sends emergency SMS messages to all of the user's registered emergency contacts. Only the user can trigger this. Returns the number of contacts notified and any failures.
     
     Supports US4 by providing an emergency alert system for users living alone.
     """

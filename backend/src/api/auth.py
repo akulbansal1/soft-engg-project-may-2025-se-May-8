@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Response, Cookie, Path
+from src.api.constants import AUTH_ERROR_RESPONSES
 from sqlalchemy.orm import Session
 from typing import List, Dict, Any, Optional
 
@@ -341,16 +342,15 @@ def verify_passkey_login(
         )
 
 @router.get(
-    "/passkey/user/{user_id}", 
+    "/passkey/user/{user_id}",
     response_model=List[PasskeyCredentialResponse],
     status_code=status.HTTP_200_OK,
     summary="Get user passkeys",
     description="Retrieve all passkey credentials for a specific user. Requires authentication and ownership.",
     responses={
         200: {"description": "List of user's passkey credentials"},
-        401: {"description": "Not authenticated"},
-        403: {"description": "Not authorized to access this user's data"},
-        404: {"description": "User not found"}
+        404: {"description": "User not found"},
+        **AUTH_ERROR_RESPONSES
     }
 )
 def get_user_passkeys(
@@ -378,7 +378,7 @@ def get_user_passkeys(
     responses={
         200: {"description": "Logout successful", "content": {"application/json": {"example": {"message": "Logout successful"}}}},
         400: {"description": "Failed to logout"},
-        401: {"description": "Not authenticated"}
+        **AUTH_ERROR_RESPONSES
     }
 )
 def logout_user(
@@ -418,7 +418,7 @@ def logout_user(
     description="Get information about the currently authenticated user.",
     responses={
         200: {"description": "Current user information"},
-        401: {"description": "Not authenticated"}
+        **AUTH_ERROR_RESPONSES
     }
 )
 def get_current_user_info(current_user = Depends(RequireAuth)):

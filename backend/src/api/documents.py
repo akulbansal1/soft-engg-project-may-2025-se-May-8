@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Cookie, UploadFile, File
+from src.api.constants import AUTH_ERROR_RESPONSES
 from fastapi import APIRouter, Depends, HTTPException, status, Cookie, UploadFile, File, Path
 from sqlalchemy.orm import Session
 from typing import List, Optional, Annotated
@@ -14,13 +15,17 @@ from src.models.user import User
 
 router = APIRouter(prefix="/documents", tags=["Documents"])
 
-@router.post("/upload", response_model=DocumentUploadResponse, responses={
-    200: {"description": "File uploaded successfully"}, 
-    400: {"description": "Invalid file or upload error"},
-    401: {"description": "Authentication required"},
-    413: {"description": "File too large"},
-    500: {"description": "Server error during upload"}
-})
+@router.post(
+    "/upload",
+    response_model=DocumentUploadResponse,
+    responses={
+        200: {"description": "File uploaded successfully"},
+        400: {"description": "Invalid file or upload error"},
+        413: {"description": "File too large"},
+        500: {"description": "Server error during upload"},
+        **AUTH_ERROR_RESPONSES
+    }
+)
 async def upload_document(
     file: UploadFile = File(...),
     current_user: User = Depends(RequireAdminOrUser)
@@ -82,7 +87,15 @@ async def upload_document(
             detail=f"Unexpected error during file upload: {str(e)}"
         )
 
-@router.post("/", response_model=DocumentResponse, responses={201: {"description": "Document created successfully."}, 400: {"description": "Invalid input."}})
+@router.post(
+    "/",
+    response_model=DocumentResponse,
+    responses={
+        201: {"description": "Document created successfully."},
+        400: {"description": "Invalid input."},
+        **AUTH_ERROR_RESPONSES
+    }
+)
 def create_document(
     document: DocumentCreate, 
     db: Session = Depends(get_db), 
@@ -136,7 +149,15 @@ def get_document_by_id(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
     return document
 
-@router.put("/{document_id}", response_model=DocumentResponse, responses={200: {"description": "Document updated successfully."}, 404: {"description": "Document not found."}})
+@router.put(
+    "/{document_id}",
+    response_model=DocumentResponse,
+    responses={
+        200: {"description": "Document updated successfully."},
+        404: {"description": "Document not found."},
+        **AUTH_ERROR_RESPONSES
+    }
+)
 def update_document(
     document_id: int = Path(..., description="ID of the document to update"),
     document_update: DocumentUpdate = None,
@@ -154,7 +175,14 @@ def update_document(
     Cache.delete(f"documents_user_{document.user_id}")
     return document
 
-@router.delete("/{document_id}", responses={200: {"description": "Document deleted successfully."}, 404: {"description": "Document not found."}})
+@router.delete(
+    "/{document_id}",
+    responses={
+        200: {"description": "Document deleted successfully."},
+        404: {"description": "Document not found."},
+        **AUTH_ERROR_RESPONSES
+    }
+)
 def delete_document(
     document_id: int = Path(..., description="ID of the document to delete"),
     db: Session = Depends(get_db),

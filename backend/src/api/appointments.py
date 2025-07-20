@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from src.api.constants import AUTH_ERROR_RESPONSES
 from fastapi import Path
 from sqlalchemy.orm import Session
 from typing import List
@@ -11,7 +12,15 @@ from src.utils.cache import Cache
 
 router = APIRouter(prefix="/appointments", tags=["Appointments"])
 
-@router.post("/", response_model=AppointmentResponse, responses={201: {"description": "Appointment created successfully."}, 400: {"description": "Invalid input."}})
+@router.post(
+    "/",
+    response_model=AppointmentResponse,
+    responses={
+        201: {"description": "Appointment created successfully."},
+        400: {"description": "Invalid input."},
+        **AUTH_ERROR_RESPONSES
+    }
+)
 def create_appointment(appointment: AppointmentCreate, db: Session = Depends(get_db), isAdmin = Depends(RequireAdmin)):
     """
     Create a new appointment record for a user. Requires admin. Clears cache for the user and doctor.
@@ -79,7 +88,15 @@ def get_appointment_by_id(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Appointment not found")
     return appointment
 
-@router.put("/{appointment_id}", response_model=AppointmentResponse, responses={200: {"description": "Appointment updated successfully."}, 404: {"description": "Appointment not found."}})
+@router.put(
+    "/{appointment_id}",
+    response_model=AppointmentResponse,
+    responses={
+        200: {"description": "Appointment updated successfully."},
+        404: {"description": "Appointment not found."},
+        **AUTH_ERROR_RESPONSES
+    }
+)
 def update_appointment(
     appointment_id: int = Path(..., description="ID of the appointment to update"),
     appointment_update: AppointmentUpdate = None,
@@ -99,7 +116,14 @@ def update_appointment(
     Cache.delete(f"appointments_doctor_{appointment.doctor_id}")
     return appointment
 
-@router.delete("/{appointment_id}", responses={200: {"description": "Appointment deleted successfully."}, 404: {"description": "Appointment not found."}})
+@router.delete(
+    "/{appointment_id}",
+    responses={
+        200: {"description": "Appointment deleted successfully."},
+        404: {"description": "Appointment not found."},
+        **AUTH_ERROR_RESPONSES
+    }
+)
 def delete_appointment(
     appointment_id: int = Path(..., description="ID of the appointment to delete"),
     db: Session = Depends(get_db),
