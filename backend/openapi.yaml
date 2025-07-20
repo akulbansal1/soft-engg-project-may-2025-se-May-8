@@ -1,0 +1,2939 @@
+openapi: 3.1.0
+info:
+  title: SE Project API (Team 8, May 2025)
+  description: "Backend API for Team 8's Software Engineering Project (May 2025 Term)\n\
+    \nThis backend powers a web-based mobile application designed for senior citizens\
+    \ and their family caregivers. The application enhances daily living and care\
+    \ coordination through these core modules identified based on user stories:\n\n\
+    - Easy-to-use UI: Senior-friendly design with large text, bold colors, and simple\
+    \ navigation\n- Medicine Tracker: Prescription management and medication identification\n\
+    - Appointments Tracker: Book, view, and get reminders for doctor appointments\n\
+    - SOS: Emergency alert system for designated contacts\n- Documents Vault: Secure\
+    \ digital repository for medical reports and history\n\n---\n\n## User Story Mapping\n\
+    \n| # | User Story (Summary) | API Endpoints |\n|---|----------------------|--------------|\n\
+    | US1 | UI accessibility | (Frontend/UI, not API) |\n| US2 | Medicine management\
+    \ | `/medicines/`, `/medicines/{medicine_id}`, `/medicines/transcribe` |\n| US3\
+    \ | Appointment management | `/appointments/`, `/appointments/user/{user_id}`\
+    \ |\n| US4 | Emergency contact notification | `/users/{user_id}/sos/trigger`,\
+    \ `/emergency-contacts/` |\n| US5 | Document storage | `/documents/`, `/documents/upload`,\
+    \ `/documents/user/{user_id}` |\n| US6 | Medication adherence tracking | `/medicines/`,\
+    \ `/medicines/user/{user_id}` |\n| US7 | Shared calendar | `/appointments/`, `/appointments/user/{user_id}`\
+    \ |\n| US8 | Emergency alerts | `/users/{user_id}/sos/trigger`, `/emergency-contacts/`\
+    \ |\n| US9 | Report sharing | `/documents/`, `/documents/user/{user_id}` |\n|\
+    \ US10 | App tutorials | (Frontend/UI, not API) |\n| US11 | Patient history review\
+    \ | `/users/{user_id}`, `/documents/user/{user_id}`, `/medicines/user/{user_id}`,\
+    \ `/appointments/user/{user_id}` |\n| US12 | System reliability | (Infra/DevOps,\
+    \ not API) |\n\n---\n\n## External APIs\n\n- **Gemini**: Integrated using the\
+    \ `google-genai` Python SDK. Used for prescription transcription from audio in\
+    \ the following endpoint:\n    - `/medicines/transcribe`\n\n- **Twilio**: Integrated\
+    \ using the official `twilio` Python SDK. Used for WhatsApp-based authentication\
+    \ and verification in the following endpoints:\n    - `/auth/sms/send` (send verification\
+    \ code)\n    - `/auth/sms/verify` (verify code)\n\n- **Amazon S3**: Integrated\
+    \ using the `boto3` Python SDK. Used for secure storage and retrieval of medical\
+    \ documents and reports in the following endpoints:\n    - `/documents/upload`\n\
+    \n"
+  contact:
+    name: Github Repository
+    url: https://github.com/akulbansal1/soft-engg-project-may-2025-se-May-8
+  license:
+    name: MIT License
+  version: 1.0.0
+paths:
+  /api/v1/users/:
+    get:
+      tags:
+      - Users
+      summary: Get Users
+      description: List all users. Returns a paginated list. Requires authentication.
+        Results are cached for 5 minutes.
+      operationId: get_users_api_v1_users__get
+      parameters:
+      - name: skip
+        in: query
+        required: false
+        schema:
+          type: integer
+          description: Number of records to skip for pagination
+          default: 0
+          title: Skip
+        description: Number of records to skip for pagination
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          description: Maximum number of users to return
+          default: 100
+          title: Limit
+        description: Maximum number of users to return
+      - name: session_token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Session Token
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UserResponse'
+                title: Response Get Users Api V1 Users  Get
+        '401':
+          description: Not authenticated. Valid authentication credentials were not
+            provided.
+        '403':
+          description: Forbidden. You do not have permission to access this resource.
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/users/{user_id}:
+    get:
+      tags:
+      - Users
+      summary: Get User
+      description: 'Get a user by ID. Only the user or an admin can access this endpoint.
+
+
+        Supports US11 by allowing users and doctors to review user profiles and history.'
+      operationId: get_user_api_v1_users__user_id__get
+      parameters:
+      - name: user_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: User Id
+      - name: session_token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Session Token
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '401':
+          description: Not authenticated. Valid authentication credentials were not
+            provided.
+        '403':
+          description: Forbidden. You do not have permission to access this resource.
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/users/{user_id}/sos/trigger:
+    post:
+      tags:
+      - Users
+      summary: Trigger Sos
+      description: 'Trigger an SOS alert for a user. Sends emergency SMS messages
+        to all of the user''s registered emergency contacts. Only the user can trigger
+        this. Returns the number of contacts notified and any failures.
+
+
+        Supports US4 by providing an emergency alert system for users living alone.'
+      operationId: trigger_sos_api_v1_users__user_id__sos_trigger_post
+      parameters:
+      - name: user_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: User Id
+      - name: session_token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Session Token
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SOSResponse'
+        '401':
+          description: Not authenticated. Valid authentication credentials were not
+            provided.
+        '403':
+          description: Forbidden. You do not have permission to access this resource.
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/auth/sms/send:
+    post:
+      tags:
+      - Authentication
+      summary: Send SMS verification code
+      description: Send a verification code to the provided phone number. This is
+        step 1 of the SMS verification process.
+      operationId: send_sms_verification_api_v1_auth_sms_send_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SMSVerificationRequest'
+        required: true
+      responses:
+        '200':
+          description: Verification code sent successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SMSVerificationResponse'
+        '400':
+          description: Invalid phone number format
+        '401':
+          description: Unauthorized - Authentication required
+        '403':
+          description: Forbidden - Insufficient permissions
+        '500':
+          description: Failed to send verification code
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/auth/sms/verify:
+    post:
+      tags:
+      - Authentication
+      summary: Verify SMS code
+      description: Verify the SMS code received on the phone number. This is step
+        2 of the SMS verification process.
+      operationId: verify_sms_code_api_v1_auth_sms_verify_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SMSVerificationCodeRequest'
+        required: true
+      responses:
+        '200':
+          description: Code verification result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SMSVerificationStatusResponse'
+        '400':
+          description: Invalid code or phone number
+        '401':
+          description: Unauthorized - Authentication required
+        '403':
+          description: Forbidden - Insufficient permissions
+        '500':
+          description: Failed to verify code
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/auth/sms/status/{phone}:
+    get:
+      tags:
+      - Authentication
+      summary: Get SMS verification status
+      description: Check the current verification status for a phone number.
+      operationId: get_sms_verification_status_api_v1_auth_sms_status__phone__get
+      parameters:
+      - name: phone
+        in: path
+        required: true
+        schema:
+          type: string
+          description: Phone number to check verification status for
+          title: Phone
+        description: Phone number to check verification status for
+      responses:
+        '200':
+          description: Verification status retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SMSVerificationStatusResponse'
+        '400':
+          description: Bad Request - Invalid input data
+        '401':
+          description: Unauthorized - Authentication required
+        '403':
+          description: Forbidden - Insufficient permissions
+        '500':
+          description: Failed to get verification status
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/auth/passkey/register/challenge:
+    post:
+      tags:
+      - Authentication
+      summary: Create passkey registration challenge
+      description: Generate a WebAuthn registration challenge for passkey setup. This
+        is step 1 of passkey registration.
+      operationId: create_passkey_registration_challenge_api_v1_auth_passkey_register_challenge_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasskeyRegistrationRequest'
+        required: true
+      responses:
+        '200':
+          description: Registration challenge created successfully
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+                title: Response Create Passkey Registration Challenge Api V1 Auth
+                  Passkey Register Challenge Post
+        '400':
+          description: Invalid user data
+        '401':
+          description: Unauthorized - Authentication required
+        '403':
+          description: Forbidden - Insufficient permissions
+        '500':
+          description: Failed to create challenge
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/auth/passkey/register/verify:
+    post:
+      tags:
+      - Authentication
+      summary: Verify passkey registration
+      description: Verify WebAuthn registration response and create passkey credential.
+        This is step 2 of passkey registration. Sets session cookie on success.
+      operationId: verify_passkey_registration_api_v1_auth_passkey_register_verify_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Body_verify_passkey_registration_api_v1_auth_passkey_register_verify_post'
+        required: true
+      responses:
+        '200':
+          description: Registration verified successfully, user created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PasskeyVerificationResult'
+        '400':
+          description: Invalid registration response
+        '401':
+          description: Unauthorized - Authentication required
+        '403':
+          description: Forbidden - Insufficient permissions
+        '500':
+          description: Failed to verify registration
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/auth/passkey/login/challenge:
+    post:
+      tags:
+      - Authentication
+      summary: Create passkey login challenge
+      description: Generate a WebAuthn authentication challenge for passkey login.
+        This is step 1 of passkey authentication.
+      operationId: create_passkey_login_challenge_api_v1_auth_passkey_login_challenge_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasskeyLoginRequest'
+        required: true
+      responses:
+        '200':
+          description: Login challenge created successfully
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+                title: Response Create Passkey Login Challenge Api V1 Auth Passkey
+                  Login Challenge Post
+        '400':
+          description: Invalid credential ID
+        '401':
+          description: Unauthorized - Authentication required
+        '403':
+          description: Forbidden - Insufficient permissions
+        '500':
+          description: Failed to create challenge
+        '404':
+          description: Credential not found
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/auth/passkey/login/verify:
+    post:
+      tags:
+      - Authentication
+      summary: Verify passkey login
+      description: Verify WebAuthn authentication response for passkey login. This
+        is step 2 of passkey authentication. Sets session cookie on success.
+      operationId: verify_passkey_login_api_v1_auth_passkey_login_verify_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Body_verify_passkey_login_api_v1_auth_passkey_login_verify_post'
+        required: true
+      responses:
+        '200':
+          description: Login verified successfully, session created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PasskeyVerificationResult'
+        '400':
+          description: Invalid login response
+        '401':
+          description: Authentication failed
+        '403':
+          description: Forbidden - Insufficient permissions
+        '500':
+          description: Failed to verify login
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/auth/passkey/user/{user_id}:
+    get:
+      tags:
+      - Authentication
+      summary: Get user passkeys
+      description: Retrieve all passkey credentials for a specific user. Requires
+        authentication and ownership.
+      operationId: get_user_passkeys_api_v1_auth_passkey_user__user_id__get
+      parameters:
+      - name: user_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: User Id
+      - name: session_token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Session Token
+      responses:
+        '200':
+          description: List of user's passkey credentials
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PasskeyCredentialResponse'
+                title: Response Get User Passkeys Api V1 Auth Passkey User  User Id  Get
+        '400':
+          description: Bad Request - Invalid input data
+        '401':
+          description: Not authenticated. Valid authentication credentials were not
+            provided.
+        '403':
+          description: Forbidden. You do not have permission to access this resource.
+        '500':
+          description: Internal Server Error
+        '404':
+          description: User not found
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/auth/logout:
+    post:
+      tags:
+      - Authentication
+      summary: User logout
+      description: Logout user by invalidating session and clearing session cookie.
+      operationId: logout_user_api_v1_auth_logout_post
+      parameters:
+      - name: session_token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Session Token
+      responses:
+        '200':
+          description: Logout successful
+          content:
+            application/json:
+              schema: {}
+              example:
+                message: Logout successful
+        '400':
+          description: Failed to logout
+        '401':
+          description: Not authenticated. Valid authentication credentials were not
+            provided.
+        '403':
+          description: Forbidden. You do not have permission to access this resource.
+        '500':
+          description: Internal Server Error
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/auth/me:
+    get:
+      tags:
+      - Authentication
+      summary: Get current user info
+      description: Get information about the currently authenticated user.
+      operationId: get_current_user_info_api_v1_auth_me_get
+      parameters:
+      - name: session_token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Session Token
+      responses:
+        '200':
+          description: Current user information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          description: Bad Request - Invalid input data
+        '401':
+          description: Not authenticated. Valid authentication credentials were not
+            provided.
+        '403':
+          description: Forbidden. You do not have permission to access this resource.
+        '500':
+          description: Internal Server Error
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/emergency-contacts/:
+    post:
+      tags:
+      - Emergency Contacts
+      summary: Create Contact
+      description: 'Create a new emergency contact for a user. Requires authentication
+        (admin or user). Enforces a maximum of 5 contacts per user. Clears cache for
+        the user''s contacts.
+
+
+        Supports US4 and US8 by allowing users to add emergency contacts for real-time
+        alerts.'
+      operationId: create_contact_api_v1_emergency_contacts__post
+      parameters:
+      - name: session_token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Session token for authentication
+          title: Session Token
+        description: Session token for authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmergencyContactCreate'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmergencyContactResponse'
+        '201':
+          description: Emergency contact created successfully.
+        '400':
+          description: Invalid input or maximum contacts reached (5).
+        '401':
+          description: Not authenticated. Valid authentication credentials were not
+            provided.
+        '403':
+          description: Forbidden. You do not have permission to access this resource.
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/emergency-contacts/user/{user_id}:
+    get:
+      tags:
+      - Emergency Contacts
+      summary: Get Contacts By User
+      description: 'List all emergency contacts for a user. Results are cached for
+        5 minutes.
+
+
+        Supports US4 and US8 by providing access to emergency contacts for alerting
+        in emergencies.'
+      operationId: get_contacts_by_user_api_v1_emergency_contacts_user__user_id__get
+      parameters:
+      - name: user_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          description: ID of the user to retrieve contacts for
+          title: User Id
+        description: ID of the user to retrieve contacts for
+      responses:
+        '200':
+          description: List of emergency contacts for the user.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EmergencyContactResponse'
+                title: Response Get Contacts By User Api V1 Emergency Contacts User  User
+                  Id  Get
+        '404':
+          description: User not found.
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/emergency-contacts/{contact_id}:
+    get:
+      tags:
+      - Emergency Contacts
+      summary: Get Contact By Id
+      description: 'Retrieve an emergency contact by its unique ID.
+
+
+        Supports US4 by letting users and caregivers review emergency contact details.'
+      operationId: get_contact_by_id_api_v1_emergency_contacts__contact_id__get
+      parameters:
+      - name: contact_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          description: ID of the emergency contact to retrieve
+          title: Contact Id
+        description: ID of the emergency contact to retrieve
+      responses:
+        '200':
+          description: Emergency contact found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmergencyContactResponse'
+        '404':
+          description: Contact not found.
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    put:
+      tags:
+      - Emergency Contacts
+      summary: Update Contact
+      description: 'Update an existing emergency contact. Requires admin or owner.
+        Clears user''s contacts cache.
+
+
+        Supports US4 by keeping emergency contact information up to date.'
+      operationId: update_contact_api_v1_emergency_contacts__contact_id__put
+      parameters:
+      - name: contact_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          description: ID of the emergency contact to update
+          title: Contact Id
+        description: ID of the emergency contact to update
+      - name: session_token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Session Token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmergencyContactUpdate'
+      responses:
+        '200':
+          description: Emergency contact updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmergencyContactResponse'
+        '404':
+          description: Contact not found.
+        '401':
+          description: Not authenticated. Valid authentication credentials were not
+            provided.
+        '403':
+          description: Forbidden. You do not have permission to access this resource.
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+      - Emergency Contacts
+      summary: Delete Contact
+      description: 'Delete an emergency contact by its unique ID. Requires admin or
+        owner. Clears user''s contacts cache.
+
+
+        Supports US4 by allowing removal of outdated or incorrect emergency contacts.'
+      operationId: delete_contact_api_v1_emergency_contacts__contact_id__delete
+      parameters:
+      - name: contact_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          description: ID of the emergency contact to delete
+          title: Contact Id
+        description: ID of the emergency contact to delete
+      - name: session_token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Session Token
+      responses:
+        '200':
+          description: Emergency contact deleted successfully.
+          content:
+            application/json:
+              schema: {}
+        '404':
+          description: Contact not found.
+        '401':
+          description: Not authenticated. Valid authentication credentials were not
+            provided.
+        '403':
+          description: Forbidden. You do not have permission to access this resource.
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/medicines/transcribe:
+    post:
+      tags:
+      - Medicines
+      summary: Transcribe Prescription
+      description: 'Transcribe an audio prescription to structured medicine data.
+        Requires authentication. Returns structured medicine info or error.
+
+
+        Uses Gemini 2.5 Flash to take an audio recording of a prescription and convert
+        that audio into a JSON that auto-fills the add or update medicine form.
+
+
+        Supports US2 by enabling users to digitize prescriptions for easier medicine
+        management.'
+      operationId: transcribe_prescription_api_v1_medicines_transcribe_post
+      parameters:
+      - name: user_id
+        in: query
+        required: false
+        schema:
+          type: integer
+          title: User Id
+      - name: session_token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Session Token
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Body_transcribe_prescription_api_v1_medicines_transcribe_post'
+      responses:
+        '200':
+          description: Prescription transcribed successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MedicineTranscriptionResponse'
+        '400':
+          description: Invalid audio file.
+        '429':
+          description: 'RESOURCE_EXHAUSTED: You''ve exceeded the rate limit. See https://ai.google.dev/gemini-api/docs/rate-limits
+            for details.'
+        '401':
+          description: Not authenticated. Valid authentication credentials were not
+            provided.
+        '403':
+          description: Forbidden. You do not have permission to access this resource.
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/medicines/:
+    post:
+      tags:
+      - Medicines
+      summary: Create Medicine
+      description: 'Create a new medicine record for a user. Requires authentication.
+        Clears cache for the user.
+
+
+        Supports US2 by allowing users to add medicines for tracking and reminders.'
+      operationId: create_medicine_api_v1_medicines__post
+      parameters:
+      - name: session_token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Session token for authentication
+          title: Session Token
+        description: Session token for authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MedicineCreate'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MedicineResponse'
+        '201':
+          description: Medicine created successfully.
+        '400':
+          description: Invalid input.
+        '401':
+          description: Not authenticated. Valid authentication credentials were not
+            provided.
+        '403':
+          description: Forbidden. You do not have permission to access this resource.
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/medicines/user/{user_id}:
+    get:
+      tags:
+      - Medicines
+      summary: Get Medicines By User
+      description: 'List all medicines for a user. Results are cached for 5 minutes.
+
+
+        Supports US2 and US6 by providing medicine lists for management and adherence
+        tracking.'
+      operationId: get_medicines_by_user_api_v1_medicines_user__user_id__get
+      parameters:
+      - name: user_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          description: ID of the user to get medicines for
+          title: User Id
+        description: ID of the user to get medicines for
+      responses:
+        '200':
+          description: List of medicines for the user.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MedicineResponse'
+                title: Response Get Medicines By User Api V1 Medicines User  User
+                  Id  Get
+        '404':
+          description: User not found.
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/medicines/{medicine_id}:
+    get:
+      tags:
+      - Medicines
+      summary: Get Medicine By Id
+      description: 'Get a medicine by its ID.
+
+
+        Supports US2 by letting users and caregivers review specific medicine details.'
+      operationId: get_medicine_by_id_api_v1_medicines__medicine_id__get
+      parameters:
+      - name: medicine_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          description: ID of the medicine to retrieve
+          title: Medicine Id
+        description: ID of the medicine to retrieve
+      responses:
+        '200':
+          description: Medicine found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MedicineResponse'
+        '404':
+          description: Medicine not found.
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    put:
+      tags:
+      - Medicines
+      summary: Update Medicine
+      description: 'Update an existing medicine record. Requires admin or owner. Clears
+        the user''s cache.
+
+
+        Supports US2 by keeping medicine records up to date for accurate management.'
+      operationId: update_medicine_api_v1_medicines__medicine_id__put
+      parameters:
+      - name: medicine_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          description: ID of the medicine to update
+          title: Medicine Id
+        description: ID of the medicine to update
+      - name: session_token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Session Token
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MedicineUpdate'
+      responses:
+        '200':
+          description: Medicine updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MedicineResponse'
+        '404':
+          description: Medicine not found.
+        '401':
+          description: Not authenticated. Valid authentication credentials were not
+            provided.
+        '403':
+          description: Forbidden. You do not have permission to access this resource.
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+      - Medicines
+      summary: Delete Medicine
+      description: 'Delete a medicine record by ID. Requires admin or owner. Clears
+        the user''s cache.
+
+
+        Supports US2 by allowing removal of outdated or incorrect medicines from the
+        user''s profile.'
+      operationId: delete_medicine_api_v1_medicines__medicine_id__delete
+      parameters:
+      - name: medicine_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          description: ID of the medicine to delete
+          title: Medicine Id
+        description: ID of the medicine to delete
+      - name: session_token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Session Token
+      responses:
+        '200':
+          description: Medicine deleted successfully.
+          content:
+            application/json:
+              schema: {}
+        '404':
+          description: Medicine not found.
+        '401':
+          description: Not authenticated. Valid authentication credentials were not
+            provided.
+        '403':
+          description: Forbidden. You do not have permission to access this resource.
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/documents/upload:
+    post:
+      tags:
+      - Documents
+      summary: Upload Document
+      description: 'Upload a document file to S3 storage and return the file URL.
+
+
+        Uses Amazon S3 to securely store medical documents and reports in the cloud,
+        automatically generating unique URLs for each file and providing instant access
+        to documents from anywhere.
+
+
+        This endpoint accepts a file upload and stores it in S3, returning the public
+        URL.
+
+        The file will be given a unique name to prevent conflicts.
+
+
+        Supported file types: PDF, DOC, DOCX, TXT, JPG, JPEG, PNG, GIF, CSV, XLS,
+        XLSX
+
+        Maximum file size: 10MB'
+      operationId: upload_document_api_v1_documents_upload_post
+      parameters:
+      - name: user_id
+        in: query
+        required: false
+        schema:
+          type: integer
+          title: User Id
+      - name: session_token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Session Token
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Body_upload_document_api_v1_documents_upload_post'
+      responses:
+        '200':
+          description: File uploaded successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentUploadResponse'
+        '400':
+          description: Invalid file or upload error
+        '413':
+          description: File too large
+        '500':
+          description: Server error during upload
+        '401':
+          description: Not authenticated. Valid authentication credentials were not
+            provided.
+        '403':
+          description: Forbidden. You do not have permission to access this resource.
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/documents/:
+    post:
+      tags:
+      - Documents
+      summary: Create Document
+      description: 'Create a new document record for a user. Requires authentication.
+        Clears cache for the user.
+
+
+        Supports US5 by enabling users to store medical documents digitally.'
+      operationId: create_document_api_v1_documents__post
+      parameters:
+      - name: session_token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Session token for authentication
+          title: Session Token
+        description: Session token for authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DocumentCreate'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentResponse'
+        '201':
+          description: Document created successfully.
+        '400':
+          description: Invalid input.
+        '401':
+          description: Not authenticated. Valid authentication credentials were not
+            provided.
+        '403':
+          description: Forbidden. You do not have permission to access this resource.
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/documents/user/{user_id}:
+    get:
+      tags:
+      - Documents
+      summary: Get Documents By User
+      description: 'List all documents for a user. Results are cached for 5 minutes.
+
+
+        Supports US5 and US9 by providing access to digital medical reports for users
+        and doctors.'
+      operationId: get_documents_by_user_api_v1_documents_user__user_id__get
+      parameters:
+      - name: user_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          description: ID of the user to get documents for
+          title: User Id
+        description: ID of the user to get documents for
+      responses:
+        '200':
+          description: List of documents for the user.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DocumentResponse'
+                title: Response Get Documents By User Api V1 Documents User  User
+                  Id  Get
+        '404':
+          description: User not found.
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/documents/{document_id}:
+    get:
+      tags:
+      - Documents
+      summary: Get Document By Id
+      description: 'Get a document by its ID.
+
+
+        Supports US5 and US9 by letting users and doctors review specific medical
+        documents.'
+      operationId: get_document_by_id_api_v1_documents__document_id__get
+      parameters:
+      - name: document_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          description: ID of the document to retrieve
+          title: Document Id
+        description: ID of the document to retrieve
+      responses:
+        '200':
+          description: Document found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentResponse'
+        '404':
+          description: Document not found.
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    put:
+      tags:
+      - Documents
+      summary: Update Document
+      description: 'Update an existing document record. Requires admin or owner. Clears
+        the user''s cache.
+
+
+        Supports US5 by keeping medical document records up to date.'
+      operationId: update_document_api_v1_documents__document_id__put
+      parameters:
+      - name: document_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          description: ID of the document to update
+          title: Document Id
+        description: ID of the document to update
+      - name: session_token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Session Token
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DocumentUpdate'
+      responses:
+        '200':
+          description: Document updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentResponse'
+        '404':
+          description: Document not found.
+        '401':
+          description: Not authenticated. Valid authentication credentials were not
+            provided.
+        '403':
+          description: Forbidden. You do not have permission to access this resource.
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+      - Documents
+      summary: Delete Document
+      description: 'Delete a document record by ID. Requires admin or owner. Clears
+        the user''s cache.
+
+
+        Supports US5 by allowing removal of outdated or incorrect medical documents.'
+      operationId: delete_document_api_v1_documents__document_id__delete
+      parameters:
+      - name: document_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          description: ID of the document to delete
+          title: Document Id
+        description: ID of the document to delete
+      - name: session_token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Session Token
+      responses:
+        '200':
+          description: Document deleted successfully.
+          content:
+            application/json:
+              schema: {}
+        '404':
+          description: Document not found.
+        '401':
+          description: Not authenticated. Valid authentication credentials were not
+            provided.
+        '403':
+          description: Forbidden. You do not have permission to access this resource.
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/doctors/:
+    post:
+      tags:
+      - Doctors
+      summary: Create Doctor
+      description: 'Create a new doctor record. Requires admin authentication. Clears
+        doctors cache.
+
+
+        Supports US9 and US11 by enabling management of doctor profiles and facilitating
+        report sharing.'
+      operationId: create_doctor_api_v1_doctors__post
+      parameters:
+      - name: session_token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Session Token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DoctorCreate'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DoctorResponse'
+        '201':
+          description: Doctor created successfully.
+        '400':
+          description: Invalid input.
+        '401':
+          description: Not authenticated. Valid authentication credentials were not
+            provided.
+        '403':
+          description: Forbidden. You do not have permission to access this resource.
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    get:
+      tags:
+      - Doctors
+      summary: Get All Doctors
+      description: 'Get all doctors. Results are cached for 5 minutes.
+
+
+        Supports US9 and US11 by providing access to doctor lists for users and families.'
+      operationId: get_all_doctors_api_v1_doctors__get
+      responses:
+        '200':
+          description: List of all doctors.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DoctorResponse'
+                title: Response Get All Doctors Api V1 Doctors  Get
+  /api/v1/doctors/{doctor_id}:
+    get:
+      tags:
+      - Doctors
+      summary: Get Doctor By Id
+      description: 'Get a doctor by ID. Results are cached for 5 minutes.
+
+
+        Supports US9 and US11 by letting users and families review doctor details
+        for appointments and consultations.'
+      operationId: get_doctor_by_id_api_v1_doctors__doctor_id__get
+      parameters:
+      - name: doctor_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          description: ID of the doctor to retrieve
+          title: Doctor Id
+        description: ID of the doctor to retrieve
+      responses:
+        '200':
+          description: Doctor found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DoctorResponse'
+        '404':
+          description: Doctor not found.
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    put:
+      tags:
+      - Doctors
+      summary: Update Doctor
+      description: 'Update an existing doctor record. Requires admin authentication.
+        Clears doctors cache.
+
+
+        Supports US9 and US11 by keeping doctor information up to date for users and
+        families.'
+      operationId: update_doctor_api_v1_doctors__doctor_id__put
+      parameters:
+      - name: doctor_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          description: ID of the doctor to update
+          title: Doctor Id
+        description: ID of the doctor to update
+      - name: session_token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Session Token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DoctorUpdate'
+      responses:
+        '200':
+          description: Doctor updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DoctorResponse'
+        '404':
+          description: Doctor not found.
+        '401':
+          description: Not authenticated. Valid authentication credentials were not
+            provided.
+        '403':
+          description: Forbidden. You do not have permission to access this resource.
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+      - Doctors
+      summary: Delete Doctor
+      description: 'Delete a doctor by ID. Requires admin authentication. Clears doctors
+        cache.
+
+
+        Supports US9 and US11 by allowing removal of outdated or incorrect doctor
+        records.'
+      operationId: delete_doctor_api_v1_doctors__doctor_id__delete
+      parameters:
+      - name: doctor_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          description: ID of the doctor to delete
+          title: Doctor Id
+        description: ID of the doctor to delete
+      - name: session_token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Session Token
+      responses:
+        '200':
+          description: Doctor deleted successfully.
+          content:
+            application/json:
+              schema: {}
+        '404':
+          description: Doctor not found.
+        '401':
+          description: Not authenticated. Valid authentication credentials were not
+            provided.
+        '403':
+          description: Forbidden. You do not have permission to access this resource.
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/appointments/:
+    post:
+      tags:
+      - Appointments
+      summary: Create Appointment
+      description: 'Create a new appointment record for a user. Requires admin. Clears
+        cache for the user and doctor.
+
+
+        Supports US3 by enabling appointment management and reminders for users.'
+      operationId: create_appointment_api_v1_appointments__post
+      parameters:
+      - name: session_token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Session Token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AppointmentCreate'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppointmentResponse'
+        '201':
+          description: Appointment created successfully.
+        '400':
+          description: Invalid input.
+        '401':
+          description: Not authenticated. Valid authentication credentials were not
+            provided.
+        '403':
+          description: Forbidden. You do not have permission to access this resource.
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/appointments/user/{user_id}:
+    get:
+      tags:
+      - Appointments
+      summary: Get Appointments By User
+      description: 'List all appointments for a user. Results are cached for 5 minutes.
+
+
+        Supports US3 and US7 by providing appointment lists for users and shared calendar
+        access for families.'
+      operationId: get_appointments_by_user_api_v1_appointments_user__user_id__get
+      parameters:
+      - name: user_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          description: ID of the user to get appointments for
+          title: User Id
+        description: ID of the user to get appointments for
+      responses:
+        '200':
+          description: List of appointments for the user.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AppointmentResponse'
+                title: Response Get Appointments By User Api V1 Appointments User  User
+                  Id  Get
+        '404':
+          description: User not found.
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/appointments/doctor/{doctor_id}:
+    get:
+      tags:
+      - Appointments
+      summary: Get Appointments By Doctor
+      description: 'List all appointments for a doctor. Results are cached for 5 minutes.
+
+
+        Supports US7 by enabling doctors and families to coordinate appointments.'
+      operationId: get_appointments_by_doctor_api_v1_appointments_doctor__doctor_id__get
+      parameters:
+      - name: doctor_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          description: ID of the doctor to get appointments for
+          title: Doctor Id
+        description: ID of the doctor to get appointments for
+      responses:
+        '200':
+          description: List of appointments for the doctor.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AppointmentResponse'
+                title: Response Get Appointments By Doctor Api V1 Appointments Doctor  Doctor
+                  Id  Get
+        '404':
+          description: Doctor not found.
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/appointments/{appointment_id}:
+    get:
+      tags:
+      - Appointments
+      summary: Get Appointment By Id
+      description: 'Get an appointment by its ID.
+
+
+        Supports US3 by allowing users and caregivers to review appointment details.'
+      operationId: get_appointment_by_id_api_v1_appointments__appointment_id__get
+      parameters:
+      - name: appointment_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          description: ID of the appointment to retrieve
+          title: Appointment Id
+        description: ID of the appointment to retrieve
+      responses:
+        '200':
+          description: Appointment found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppointmentResponse'
+        '404':
+          description: Appointment not found.
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    put:
+      tags:
+      - Appointments
+      summary: Update Appointment
+      description: 'Update an existing appointment record. Requires admin. Clears
+        cache for the user and doctor.
+
+
+        Supports US3 by keeping appointment records up to date for users and families.'
+      operationId: update_appointment_api_v1_appointments__appointment_id__put
+      parameters:
+      - name: appointment_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          description: ID of the appointment to update
+          title: Appointment Id
+        description: ID of the appointment to update
+      - name: session_token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Session Token
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AppointmentUpdate'
+      responses:
+        '200':
+          description: Appointment updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppointmentResponse'
+        '404':
+          description: Appointment not found.
+        '401':
+          description: Not authenticated. Valid authentication credentials were not
+            provided.
+        '403':
+          description: Forbidden. You do not have permission to access this resource.
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+      - Appointments
+      summary: Delete Appointment
+      description: 'Delete an appointment record by ID. Requires admin. Clears cache
+        for the user and doctor.
+
+
+        Supports US3 by allowing removal of outdated or incorrect appointments.'
+      operationId: delete_appointment_api_v1_appointments__appointment_id__delete
+      parameters:
+      - name: appointment_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          description: ID of the appointment to delete
+          title: Appointment Id
+        description: ID of the appointment to delete
+      - name: session_token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Session Token
+      responses:
+        '200':
+          description: Appointment deleted successfully.
+          content:
+            application/json:
+              schema: {}
+        '404':
+          description: Appointment not found.
+        '401':
+          description: Not authenticated. Valid authentication credentials were not
+            provided.
+        '403':
+          description: Forbidden. You do not have permission to access this resource.
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/:
+    get:
+      summary: Read Root
+      description: Root API endpoint for service status. Returns a message confirming
+        the backend is running, along with status and version info.
+      operationId: read_root_api_v1__get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /api/v1/health:
+    get:
+      summary: Health Check
+      description: Health check endpoint for monitoring tools. Returns a simple healthy
+        status and service name.
+      operationId: health_check_api_v1_health_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+components:
+  schemas:
+    AppointmentCreate:
+      properties:
+        name:
+          type: string
+          title: Name
+          description: Appointment name
+          example: Consultation
+        date:
+          type: string
+          format: date
+          title: Date
+          description: Appointment date (YYYY-MM-DD)
+          example: '2025-07-03'
+        time:
+          type: string
+          format: time
+          title: Time
+          description: Appointment time (HH:MM:SS)
+          example: '14:30:00'
+        notes:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Notes
+          description: Additional notes (optional)
+          example: Eat healthy
+        user_id:
+          type: integer
+          title: User Id
+          description: User ID for the appointment
+          example: 1
+        doctor_id:
+          type: integer
+          title: Doctor Id
+          description: Doctor ID for the appointment
+          example: 1
+      type: object
+      required:
+      - name
+      - date
+      - time
+      - user_id
+      - doctor_id
+      title: AppointmentCreate
+      description: Schema for creating a new appointment.
+    AppointmentResponse:
+      properties:
+        name:
+          type: string
+          title: Name
+          description: Appointment name
+          example: Consultation
+        date:
+          type: string
+          format: date
+          title: Date
+          description: Appointment date (YYYY-MM-DD)
+          example: '2025-07-03'
+        time:
+          type: string
+          format: time
+          title: Time
+          description: Appointment time (HH:MM:SS)
+          example: '14:30:00'
+        notes:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Notes
+          description: Additional notes (optional)
+          example: Eat healthy
+        id:
+          type: integer
+          title: Id
+          description: Unique appointment ID
+          example: 1
+        user_id:
+          type: integer
+          title: User Id
+          description: User ID for the appointment
+          example: 1
+        doctor_id:
+          type: integer
+          title: Doctor Id
+          description: Doctor ID for the appointment
+          example: 1
+        medicines:
+          anyOf:
+          - items:
+              type: integer
+            type: array
+          - type: 'null'
+          title: Medicines
+          description: List of medicine IDs for this appointment (optional)
+      type: object
+      required:
+      - name
+      - date
+      - time
+      - id
+      - user_id
+      - doctor_id
+      title: AppointmentResponse
+      description: Schema for returning appointment data to the client.
+      example:
+        date: '2025-07-03'
+        doctor_id: 2
+        id: 1
+        medicines:
+        - 10
+        - 11
+        name: Consultation
+        notes: Eat healthy
+        time: '14:30:00'
+        user_id: 1
+    AppointmentUpdate:
+      properties:
+        name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Name
+          description: Appointment name (optional)
+          example: Consultation
+        date:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: Date
+          description: Appointment date (optional)
+          example: '2025-07-03'
+        time:
+          anyOf:
+          - type: string
+            format: time
+          - type: 'null'
+          title: Time
+          description: Appointment time (optional)
+          example: '14:30:00'
+        notes:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Notes
+          description: Additional notes (optional)
+          example: Eat healthy
+        user_id:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: User Id
+          description: User ID (optional)
+          example: 1
+        doctor_id:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Doctor Id
+          description: Doctor ID (optional)
+          example: 1
+      type: object
+      title: AppointmentUpdate
+      description: Schema for updating an appointment (partial update).
+    Body_transcribe_prescription_api_v1_medicines_transcribe_post:
+      properties:
+        file:
+          type: string
+          format: binary
+          title: File
+      type: object
+      required:
+      - file
+      title: Body_transcribe_prescription_api_v1_medicines_transcribe_post
+    Body_upload_document_api_v1_documents_upload_post:
+      properties:
+        file:
+          type: string
+          format: binary
+          title: File
+      type: object
+      required:
+      - file
+      title: Body_upload_document_api_v1_documents_upload_post
+    Body_verify_passkey_login_api_v1_auth_passkey_login_verify_post:
+      properties:
+        request:
+          $ref: '#/components/schemas/PasskeyLoginRequest'
+        response_data:
+          additionalProperties: true
+          type: object
+          title: Response Data
+      type: object
+      required:
+      - request
+      - response_data
+      title: Body_verify_passkey_login_api_v1_auth_passkey_login_verify_post
+    Body_verify_passkey_registration_api_v1_auth_passkey_register_verify_post:
+      properties:
+        request:
+          $ref: '#/components/schemas/PasskeyRegistrationRequest'
+        response_data:
+          additionalProperties: true
+          type: object
+          title: Response Data
+      type: object
+      required:
+      - request
+      - response_data
+      title: Body_verify_passkey_registration_api_v1_auth_passkey_register_verify_post
+    DoctorCreate:
+      properties:
+        name:
+          type: string
+          title: Name
+          description: Doctor's name
+          example: Dr. A. Kumar
+        location:
+          type: string
+          title: Location
+          description: Doctor's location
+          example: Delhi
+      type: object
+      required:
+      - name
+      - location
+      title: DoctorCreate
+      description: Schema for creating a new doctor record.
+    DoctorResponse:
+      properties:
+        name:
+          type: string
+          title: Name
+          description: Doctor's name
+          example: Dr. A. Kumar
+        location:
+          type: string
+          title: Location
+          description: Doctor's location
+          example: Delhi
+        id:
+          type: integer
+          title: Id
+          description: Unique doctor ID
+          example: 1
+      type: object
+      required:
+      - name
+      - location
+      - id
+      title: DoctorResponse
+      description: Schema for returning doctor data to the client.
+      example:
+        id: 1
+        location: Delhi
+        name: Dr. A. Kumar
+    DoctorUpdate:
+      properties:
+        name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Name
+          description: Doctor's name (optional)
+          example: Dr. A. Kumar
+        location:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Location
+          description: Doctor's location (optional)
+          example: Delhi
+      type: object
+      title: DoctorUpdate
+      description: Schema for updating a doctor record (partial update).
+    DocumentCreate:
+      properties:
+        name:
+          type: string
+          title: Name
+          description: Name of the document
+          example: Prescription.pdf
+        file_url:
+          type: string
+          title: File Url
+          description: URL to the uploaded document
+          example: https://example.com/file.pdf
+        user_id:
+          type: integer
+          title: User Id
+          description: ID of the user who owns the document
+          example: 1
+      type: object
+      required:
+      - name
+      - file_url
+      - user_id
+      title: DocumentCreate
+      description: Schema for creating a new document record.
+    DocumentResponse:
+      properties:
+        name:
+          type: string
+          title: Name
+          description: Name of the document
+          example: Prescription.pdf
+        file_url:
+          type: string
+          title: File Url
+          description: URL to the uploaded document
+          example: https://example.com/file.pdf
+        id:
+          type: integer
+          title: Id
+          description: Unique document ID
+          example: 1
+        user_id:
+          type: integer
+          title: User Id
+          description: ID of the user who owns the document
+          example: 1
+        timestamp:
+          type: string
+          format: date-time
+          title: Timestamp
+          description: Upload timestamp (ISO 8601)
+          example: '2025-06-25T12:00:00+00:00'
+      type: object
+      required:
+      - name
+      - file_url
+      - id
+      - user_id
+      - timestamp
+      title: DocumentResponse
+      description: Schema for returning document data to the client.
+      example:
+        file_url: https://example.com/file.pdf
+        id: 1
+        name: Prescription.pdf
+        timestamp: '2025-06-25T12:00:00+00:00'
+        user_id: 1
+    DocumentUpdate:
+      properties:
+        name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Name
+          description: Updated document name (optional)
+          example: UpdatedName.pdf
+        file_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: File Url
+          description: Updated file URL (optional)
+          example: https://example.com/updated.pdf
+      type: object
+      title: DocumentUpdate
+      description: Schema for updating a document record (partial update).
+    DocumentUploadResponse:
+      properties:
+        file_url:
+          type: string
+          title: File Url
+          description: URL of the uploaded file
+          example: https://example.com/file.pdf
+        filename:
+          type: string
+          title: Filename
+          description: Original filename
+          example: document.pdf
+        message:
+          type: string
+          title: Message
+          description: Success message
+          default: File uploaded successfully
+      type: object
+      required:
+      - file_url
+      - filename
+      title: DocumentUploadResponse
+      description: Schema for document upload response.
+      example:
+        file_url: https://example.com/file.pdf
+        filename: document.pdf
+        message: File uploaded successfully
+    EmergencyContactCreate:
+      properties:
+        name:
+          type: string
+          title: Name
+          description: Name of the emergency contact
+          example: John Doe
+        relation:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Relation
+          description: Relation to the user (optional)
+          example: Brother
+        phone:
+          type: string
+          title: Phone
+          description: Phone number of the emergency contact in international format
+            (E.164, e.g., +1234567890)
+          example: '+1234567890'
+        user_id:
+          type: integer
+          title: User Id
+          description: ID of the user this contact belongs to
+          example: 1
+      type: object
+      required:
+      - name
+      - phone
+      - user_id
+      title: EmergencyContactCreate
+      description: Schema for creating a new emergency contact.
+    EmergencyContactResponse:
+      properties:
+        name:
+          type: string
+          title: Name
+          description: Name of the emergency contact
+          example: John Doe
+        relation:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Relation
+          description: Relation to the user (optional)
+          example: Brother
+        phone:
+          type: string
+          title: Phone
+          description: Phone number of the emergency contact in international format
+            (E.164, e.g., +1234567890)
+          example: '+1234567890'
+        id:
+          type: integer
+          title: Id
+          description: Unique emergency contact ID
+          example: 1
+        user_id:
+          type: integer
+          title: User Id
+          description: ID of the user this contact belongs to
+          example: 1
+      type: object
+      required:
+      - name
+      - phone
+      - id
+      - user_id
+      title: EmergencyContactResponse
+      description: Schema for returning emergency contact data to the client.
+      example:
+        id: 1
+        name: John Doe
+        phone: '+1234567890'
+        relation: Brother
+        user_id: 1
+    EmergencyContactUpdate:
+      properties:
+        name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Name
+          description: Name of the emergency contact (optional)
+          example: John Doe
+        relation:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Relation
+          description: Relation to the user (optional)
+          example: Brother
+        phone:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Phone
+          description: Phone number in international format (E.164, e.g., +1234567890)
+            (optional)
+          example: '+1234567890'
+      type: object
+      title: EmergencyContactUpdate
+      description: Schema for updating an emergency contact (partial update).
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    MedicineCreate:
+      properties:
+        name:
+          type: string
+          title: Name
+          description: Name of the medicine
+          example: Paracetamol
+        dosage:
+          type: string
+          title: Dosage
+          description: Dosage information
+          example: 500mg
+        frequency:
+          type: string
+          title: Frequency
+          description: Frequency of intake
+          example: Once a day after dinner
+        start_date:
+          type: string
+          format: date
+          title: Start Date
+          description: Start date of the medicine course
+          example: '2025-06-25'
+        end_date:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: End Date
+          description: End date of the medicine course (optional)
+          example: '2025-07-05'
+        notes:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Notes
+          description: Additional notes or instructions (optional)
+          example: Take with food
+        user_id:
+          type: integer
+          title: User Id
+          description: ID of the user taking the medicine
+          example: 1
+        doctor_id:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Doctor Id
+          description: ID of the doctor who issued the medicine (optional)
+          example: 1
+        appointment_id:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Appointment Id
+          description: ID of the appointment associated with the medicine (optional)
+          example: 1
+      type: object
+      required:
+      - name
+      - dosage
+      - frequency
+      - start_date
+      - user_id
+      title: MedicineCreate
+      description: Schema for creating a new medicine record.
+    MedicineResponse:
+      properties:
+        name:
+          type: string
+          title: Name
+          description: Name of the medicine
+          example: Paracetamol
+        dosage:
+          type: string
+          title: Dosage
+          description: Dosage information
+          example: 500mg
+        frequency:
+          type: string
+          title: Frequency
+          description: Frequency of intake
+          example: Once a day after dinner
+        start_date:
+          type: string
+          format: date
+          title: Start Date
+          description: Start date of the medicine course
+          example: '2025-06-25'
+        end_date:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: End Date
+          description: End date of the medicine course (optional)
+          example: '2025-07-05'
+        notes:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Notes
+          description: Additional notes or instructions (optional)
+          example: Take with food
+        id:
+          type: integer
+          title: Id
+          description: Unique medicine ID
+          example: 1
+        user_id:
+          type: integer
+          title: User Id
+          description: ID of the user taking the medicine
+          example: 1
+        doctor_id:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Doctor Id
+          description: ID of the doctor who issued the medicine (optional)
+          example: 1
+        appointment_id:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Appointment Id
+          description: ID of the appointment associated (optional)
+          example: 1
+      type: object
+      required:
+      - name
+      - dosage
+      - frequency
+      - start_date
+      - id
+      - user_id
+      title: MedicineResponse
+      description: Schema for returning medicine data to the client.
+      example:
+        appointment_id: 3
+        doctor_id: 2
+        dosage: 500mg
+        end_date: '2025-07-05'
+        frequency: Once a day after dinner
+        id: 1
+        name: Paracetamol
+        notes: Take with food
+        start_date: '2025-06-25'
+        user_id: 1
+    MedicineTranscriptionResponse:
+      properties:
+        name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Name
+          description: Name of the medicine (optional)
+        dosage:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Dosage
+          description: Dosage information (optional)
+        frequency:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Frequency
+          description: Frequency of intake (optional)
+        start_date:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Start Date
+          description: Start date of the medicine course (ISO 8601 datetime, optional)
+        end_date:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: End Date
+          description: End date of the medicine course (ISO 8601 datetime, optional)
+        notes:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Notes
+          description: Additional notes or instructions (optional)
+      type: object
+      title: MedicineTranscriptionResponse
+      description: Schema for AI-generated medicine transcription from audio.
+      example:
+        dosage: 500mg
+        end_date: '2025-07-05T08:00:00Z'
+        frequency: Once a day after dinner
+        name: Paracetamol
+        notes: Take with food
+        start_date: '2025-06-25T08:00:00Z'
+    MedicineUpdate:
+      properties:
+        name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Name
+          description: Name of the medicine (optional)
+          example: Paracetamol
+        dosage:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Dosage
+          description: Dosage information (optional)
+          example: 500mg
+        frequency:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Frequency
+          description: Frequency of intake (optional)
+          example: Once a day after dinner
+        start_date:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: Start Date
+          description: Start date (optional)
+          example: '2025-06-25'
+        end_date:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: End Date
+          description: End date (optional)
+          example: '2025-07-05'
+        notes:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Notes
+          description: Additional notes (optional)
+          example: Take with food
+      type: object
+      title: MedicineUpdate
+      description: Schema for updating a medicine record (partial update).
+    PasskeyCredentialResponse:
+      properties:
+        credential_id:
+          type: string
+          title: Credential Id
+          description: Unique credential identifier
+          example: cred-123
+        public_key:
+          type: string
+          title: Public Key
+          description: Public key for the credential
+          example: MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8A...
+        id:
+          type: integer
+          title: Id
+          description: Unique credential ID
+          example: 1
+        user_id:
+          type: integer
+          title: User Id
+          description: User ID this credential belongs to
+          example: 1
+        sign_count:
+          type: integer
+          title: Sign Count
+          description: Signature counter
+          example: 0
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+          description: Credential creation timestamp (ISO 8601)
+          example: '2025-07-01T10:00:00Z'
+      type: object
+      required:
+      - credential_id
+      - public_key
+      - id
+      - user_id
+      - sign_count
+      - created_at
+      title: PasskeyCredentialResponse
+      description: Schema for PasskeyCredential responses.
+      example:
+        created_at: '2025-07-01T10:00:00Z'
+        credential_id: cred-123
+        id: 1
+        public_key: MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8A...
+        sign_count: 0
+        user_id: 1
+    PasskeyLoginRequest:
+      properties:
+        credential_id:
+          type: string
+          title: Credential Id
+          description: Credential ID for login (optional)
+          example: cred-123
+      type: object
+      title: PasskeyLoginRequest
+      description: Request to start passkey login.
+    PasskeyRegistrationRequest:
+      properties:
+        user_phone:
+          type: string
+          title: User Phone
+          description: User phone number for registration
+          example: '+919876543210'
+        user_name:
+          type: string
+          title: User Name
+          description: User name for registration
+          example: Amit Sharma
+        user_dob:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: User Dob
+          description: User date of birth (optional)
+          example: '1950-01-01'
+        user_gender:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: User Gender
+          description: User gender (optional)
+          example: Male
+      type: object
+      required:
+      - user_phone
+      - user_name
+      title: PasskeyRegistrationRequest
+      description: Request to start passkey registration.
+    PasskeyVerificationResult:
+      properties:
+        user_id:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: User Id
+          description: User ID if login was successful (optional)
+          example: 1
+        credential_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Credential Id
+          description: Credential ID used (optional)
+          example: cred-123
+        session_expires_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Session Expires At
+          description: Session expiration time if applicable (optional)
+          example: '2025-07-01T12:00:00Z'
+      type: object
+      title: PasskeyVerificationResult
+      description: Result of passkey verification.
+    SMSVerificationCodeRequest:
+      properties:
+        phone:
+          type: string
+          title: Phone
+          description: Phone number that received the verification code (E.164 format)
+          example: '+1234567890'
+        code:
+          type: string
+          maxLength: 8
+          minLength: 4
+          title: Code
+          description: Verification code received via SMS (4-8 digits)
+          example: '123456'
+      type: object
+      required:
+      - phone
+      - code
+      title: SMSVerificationCodeRequest
+      description: Schema for SMS verification code submission. Used to verify the
+        code received via SMS.
+      example:
+        code: '123456'
+        phone: '+1234567890'
+    SMSVerificationRequest:
+      properties:
+        phone:
+          type: string
+          title: Phone
+          description: Phone number to send verification code to (E.164 format)
+          example: '+1234567890'
+      type: object
+      required:
+      - phone
+      title: SMSVerificationRequest
+      description: Schema for SMS verification initiation request. Used to request
+        a verification code via SMS.
+      example:
+        phone: '+1234567890'
+    SMSVerificationResponse:
+      properties:
+        success:
+          type: boolean
+          title: Success
+          description: Whether the operation was successful
+          example: true
+        message:
+          type: string
+          title: Message
+          description: Response message
+          example: Verification code sent successfully
+        expires_in:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Expires In
+          description: Time in seconds until verification expires (optional)
+          example: 600
+      type: object
+      required:
+      - success
+      - message
+      title: SMSVerificationResponse
+      description: Schema for SMS verification response. Indicates if the code was
+        sent and when it expires.
+      example:
+        expires_in: 600
+        message: Verification code sent successfully
+        success: true
+    SMSVerificationStatusResponse:
+      properties:
+        verified:
+          type: boolean
+          title: Verified
+          description: Whether the phone number is verified
+          example: true
+        message:
+          type: string
+          title: Message
+          description: Response message
+          example: Phone number successfully verified
+        expires_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Expires At
+          description: When the verification status expires (ISO 8601, optional)
+          example: '2025-06-28T22:30:00Z'
+      type: object
+      required:
+      - verified
+      - message
+      title: SMSVerificationStatusResponse
+      description: Schema for SMS verification status response. Indicates if the phone
+        number is verified and expiry info.
+      example:
+        expires_at: '2025-06-28T22:30:00Z'
+        message: Phone number successfully verified
+        verified: true
+    SOSResponse:
+      properties:
+        success:
+          type: boolean
+          title: Success
+          description: Whether the SOS messages were sent successfully
+          example: true
+        message:
+          type: string
+          title: Message
+          description: Response message
+          example: Emergency SOS messages sent successfully
+        contacts_notified:
+          type: integer
+          title: Contacts Notified
+          description: Number of emergency contacts notified
+          example: 3
+        failed_notifications:
+          items:
+            type: string
+          type: array
+          title: Failed Notifications
+          description: List of phone numbers that failed to receive notification
+          default: []
+          example: []
+      type: object
+      required:
+      - success
+      - message
+      - contacts_notified
+      title: SOSResponse
+      description: Schema for SOS trigger response.
+      example:
+        contacts_notified: 2
+        failed_notifications:
+        - '+919876543210'
+        - '+919812345678'
+        message: Some SOS messages failed to send
+        success: false
+    UserResponse:
+      properties:
+        name:
+          type: string
+          title: Name
+          description: Full name of the user
+          example: Amit Sharma
+        phone:
+          type: string
+          title: Phone
+          description: User's phone number in international format
+          example: '+919876543210'
+        dob:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: Dob
+          description: Date of birth (optional)
+          example: '1950-01-01'
+        gender:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Gender
+          description: Gender (optional)
+          example: Male
+        id:
+          type: integer
+          title: Id
+          description: Unique user ID
+          example: 1
+        is_active:
+          type: boolean
+          title: Is Active
+          description: Whether the user is active
+          example: true
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+          description: User creation timestamp (ISO 8601)
+          example: '2025-07-01T10:00:00Z'
+      type: object
+      required:
+      - name
+      - phone
+      - id
+      - is_active
+      - created_at
+      title: UserResponse
+      description: Schema for user response data returned to client.
+      example:
+        created_at: '2025-07-01T10:00:00Z'
+        dob: '1950-01-01'
+        gender: Male
+        id: 1
+        is_active: true
+        name: Amit Sharma
+        phone: '+919876543210'
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError

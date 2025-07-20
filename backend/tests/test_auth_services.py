@@ -322,22 +322,36 @@ class TestPasskeyService:
         user_phone = "9876543210"
         user_name = "Test User"
         
+        # Create mock serialized challenge response
+        from src.schemas.passkey import SerializedWebAuthnChallenge, WebAuthnUser, WebAuthnRelyingParty
+        mock_serialized_challenge = SerializedWebAuthnChallenge(
+            challenge="test_challenge_base64",
+            user=WebAuthnUser(id="dGVzdF9pZA==", name=user_phone, display_name=user_name),
+            rp=WebAuthnRelyingParty(name="Test RP", id="test.local"),
+            timeout=300000,
+            attestation="none"
+        )
+        
         with patch('src.services.passkey_service.generate_registration_options') as mock_gen_options:
-            with patch('src.utils.cache.Cache.set') as mock_cache_set:
-                mock_challenge_data = MagicMock()
-                mock_challenge_data.challenge = "test_challenge_data"
-                mock_gen_options.return_value = mock_challenge_data
-                
-                result = PasskeyService.create_signup_challenge(test_db, user_phone, user_name)
-                
-                # Verify user was created
-                user = UserService.get_user_by_phone(test_db, user_phone)
-                assert user is not None
-                assert user.name == user_name
-                assert user.phone == user_phone
-                assert user.is_active is False  # Should be inactive until passkey registration
-                
-                # Verify challenge generation
+            with patch('src.services.passkey_service.PasskeyService._serialize_challenge_data', return_value=mock_serialized_challenge) as mock_serialize:
+                with patch('src.utils.cache.Cache.set') as mock_cache_set:
+                    mock_challenge_data = MagicMock()
+                    mock_gen_options.return_value = mock_challenge_data
+                    
+                    result = PasskeyService.create_signup_challenge(test_db, user_phone, user_name)
+                    
+                    # Verify user was created
+                    user = UserService.get_user_by_phone(test_db, user_phone)
+                    assert user is not None
+                    assert user.name == user_name
+                    assert user.phone == user_phone
+                    assert user.is_active is False  # Should be inactive until passkey registration
+                    
+                    # Verify the result is the mocked serialized challenge
+                    assert result == mock_serialized_challenge
+                    assert result.challenge == "test_challenge_base64"
+                    assert result.user.name == user_phone
+                    assert result.user.display_name == user_name
                 mock_gen_options.assert_called_once()
                 mock_cache_set.assert_called_once()
                 assert result == PasskeyService._serialize_challenge_data(mock_challenge_data)
@@ -352,16 +366,27 @@ class TestPasskeyService:
         )
         created_user = UserService.register_user(test_db, user_data)
         
+        # Create mock serialized challenge response
+        from src.schemas.passkey import SerializedWebAuthnChallenge, WebAuthnUser, WebAuthnRelyingParty
+        mock_serialized_challenge = SerializedWebAuthnChallenge(
+            challenge="test_challenge_base64",
+            user=WebAuthnUser(id="dGVzdF9pZA==", name="8888888888", display_name="Test User"),
+            rp=WebAuthnRelyingParty(name="Test RP", id="test.local"),
+            timeout=300000,
+            attestation="none"
+        )
+        
         with patch('src.services.passkey_service.generate_registration_options') as mock_gen_options:
-            with patch('src.utils.cache.Cache.set'):
-                mock_challenge_data = MagicMock()
-                mock_gen_options.return_value = mock_challenge_data
-                
-                result = PasskeyService.create_signup_challenge(test_db, "8888888888", "Test User")
-                
-                # Should use existing user
-                assert result == PasskeyService._serialize_challenge_data(mock_challenge_data)
-                mock_gen_options.assert_called_once()
+            with patch('src.services.passkey_service.PasskeyService._serialize_challenge_data', return_value=mock_serialized_challenge):
+                with patch('src.utils.cache.Cache.set'):
+                    mock_challenge_data = MagicMock()
+                    mock_gen_options.return_value = mock_challenge_data
+                    
+                    result = PasskeyService.create_signup_challenge(test_db, "8888888888", "Test User")
+                    
+                    # Should use existing user and return serialized challenge
+                    assert result == mock_serialized_challenge
+                    mock_gen_options.assert_called_once()
 
     def test_create_signup_challenge_existing_active_user(self, test_db):
         """Test creating signup challenge fails for existing active user"""
@@ -388,29 +413,39 @@ class TestPasskeyService:
         user_dob = date(1992, 5, 20)
         user_gender = "Female"
         
+        # Create mock serialized challenge response
+        from src.schemas.passkey import SerializedWebAuthnChallenge, WebAuthnUser, WebAuthnRelyingParty
+        mock_serialized_challenge = SerializedWebAuthnChallenge(
+            challenge="test_challenge_base64",
+            user=WebAuthnUser(id="dGVzdF9pZA==", name=user_phone, display_name=user_name),
+            rp=WebAuthnRelyingParty(name="Test RP", id="test.local"),
+            timeout=300000,
+            attestation="none"
+        )
+        
         with patch('src.services.passkey_service.generate_registration_options') as mock_gen_options:
-            with patch('src.utils.cache.Cache.set') as mock_cache_set:
-                mock_challenge_data = MagicMock()
-                mock_challenge_data.challenge = "test_challenge_data"
-                mock_gen_options.return_value = mock_challenge_data
-                
-                result = PasskeyService.create_signup_challenge(
-                    test_db, user_phone, user_name, user_dob, user_gender
-                )
-                
-                # Verify user was created with optional fields
-                user = UserService.get_user_by_phone(test_db, user_phone)
-                assert user is not None
-                assert user.name == user_name
-                assert user.phone == user_phone
-                assert user.dob == user_dob
-                assert user.gender == user_gender
-                assert user.is_active is False  # Should be inactive until passkey registration
-                
-                # Verify challenge generation
-                mock_gen_options.assert_called_once()
-                mock_cache_set.assert_called_once()
-                assert result == PasskeyService._serialize_challenge_data(mock_challenge_data)
+            with patch('src.services.passkey_service.PasskeyService._serialize_challenge_data', return_value=mock_serialized_challenge):
+                with patch('src.utils.cache.Cache.set') as mock_cache_set:
+                    mock_challenge_data = MagicMock()
+                    mock_gen_options.return_value = mock_challenge_data
+                    
+                    result = PasskeyService.create_signup_challenge(
+                        test_db, user_phone, user_name, user_dob, user_gender
+                    )
+                    
+                    # Verify user was created with optional fields
+                    user = UserService.get_user_by_phone(test_db, user_phone)
+                    assert user is not None
+                    assert user.name == user_name
+                    assert user.phone == user_phone
+                    assert user.dob == user_dob
+                    assert user.gender == user_gender
+                    assert user.is_active is False  # Should be inactive until passkey registration
+                    
+                    # Verify the result is the mocked serialized challenge
+                    assert result == mock_serialized_challenge
+                    mock_gen_options.assert_called_once()
+                    mock_cache_set.assert_called_once()
 
     def test_create_signup_challenge_with_partial_optional_fields(self, test_db):
         """Test creating signup challenge with only some optional fields"""
@@ -419,24 +454,38 @@ class TestPasskeyService:
         user_name = "John Smith"
         user_dob = date(1985, 8, 15)
         
+        # Create mock serialized challenge response
+        from src.schemas.passkey import SerializedWebAuthnChallenge, WebAuthnUser, WebAuthnRelyingParty
+        mock_serialized_challenge = SerializedWebAuthnChallenge(
+            challenge="test_challenge_base64",
+            user=WebAuthnUser(id="dGVzdF9pZA==", name=user_phone, display_name=user_name),
+            rp=WebAuthnRelyingParty(name="Test RP", id="test.local"),
+            timeout=300000,
+            attestation="none"
+        )
+        
         with patch('src.services.passkey_service.generate_registration_options') as mock_gen_options:
-            with patch('src.utils.cache.Cache.set'):
-                mock_challenge_data = MagicMock()
-                mock_gen_options.return_value = mock_challenge_data
-                
-                # Test with only DOB, no gender
-                result = PasskeyService.create_signup_challenge(
-                    test_db, user_phone, user_name, user_dob, None
-                )
-                
-                # Verify user was created with partial optional fields
-                user = UserService.get_user_by_phone(test_db, user_phone)
-                assert user is not None
-                assert user.name == user_name
-                assert user.phone == user_phone
-                assert user.dob == user_dob
-                assert user.gender is None
-                assert user.is_active is False
+            with patch('src.services.passkey_service.PasskeyService._serialize_challenge_data', return_value=mock_serialized_challenge):
+                with patch('src.utils.cache.Cache.set'):
+                    mock_challenge_data = MagicMock()
+                    mock_gen_options.return_value = mock_challenge_data
+                    
+                    # Test with only DOB, no gender
+                    result = PasskeyService.create_signup_challenge(
+                        test_db, user_phone, user_name, user_dob, None
+                    )
+                    
+                    # Verify user was created with partial optional fields
+                    user = UserService.get_user_by_phone(test_db, user_phone)
+                    assert user is not None
+                    assert user.name == user_name
+                    assert user.phone == user_phone
+                    assert user.dob == user_dob
+                    assert user.gender is None
+                    assert user.is_active is False
+                    
+                    # Verify the result is the mocked serialized challenge
+                    assert result == mock_serialized_challenge
 
     def test_create_login_challenge_success(self, test_db):
         """Test creating login challenge for existing credential"""
@@ -456,17 +505,27 @@ class TestPasskeyService:
         )
         credential = PasskeyService.create_credential(test_db, credential_data)
         
+        # Create mock serialized challenge response
+        from src.schemas.passkey import SerializedWebAuthnChallenge, WebAuthnUser, WebAuthnRelyingParty
+        mock_serialized_challenge = SerializedWebAuthnChallenge(
+            challenge="test_challenge_base64",
+            user=WebAuthnUser(id="dGVzdF9pZA==", name="5555555555", display_name="Test User"),
+            rp=WebAuthnRelyingParty(name="Test RP", id="test.local"),
+            timeout=300000,
+            attestation="none"
+        )
+        
         with patch('src.services.passkey_service.generate_authentication_options') as mock_gen_options:
-            with patch('src.utils.cache.Cache.set') as mock_cache_set:
-                mock_challenge_data = MagicMock()
-                mock_challenge_data.challenge = "test_challenge_data"
-                mock_gen_options.return_value = mock_challenge_data
-                
-                result = PasskeyService.create_login_challenge(test_db, credential.credential_id)
-                
-                assert result == PasskeyService._serialize_challenge_data(mock_challenge_data)
-                mock_gen_options.assert_called_once()
-                mock_cache_set.assert_called_once()
+            with patch('src.services.passkey_service.PasskeyService._serialize_challenge_data', return_value=mock_serialized_challenge):
+                with patch('src.utils.cache.Cache.set') as mock_cache_set:
+                    mock_challenge_data = MagicMock()
+                    mock_gen_options.return_value = mock_challenge_data
+                    
+                    result = PasskeyService.create_login_challenge(test_db, credential.credential_id)
+                    
+                    assert result == mock_serialized_challenge
+                    mock_gen_options.assert_called_once()
+                    mock_cache_set.assert_called_once()
 
     def test_create_login_challenge_credential_not_found(self, test_db):
         """Test creating login challenge fails for non-existent credential"""
@@ -600,7 +659,7 @@ class TestPasskeyService:
         # Mock verification response
         mock_response = MagicMock()
         mock_response.credential_id = "test_credential_id"
-        mock_response.public_key = "test_public_key"
+        mock_response.credential_public_key = "test_public_key"
         mock_verify_reg.return_value = mock_response
         
         # Mock cache with challenge data

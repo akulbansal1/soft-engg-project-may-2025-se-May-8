@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Cookie
+from fastapi import APIRouter, Depends, HTTPException, status, Cookie, Path
+from src.api.constants import AUTH_ERROR_RESPONSES
 from sqlalchemy.orm import Session
 from typing import List, Optional, Annotated
 
@@ -8,15 +9,29 @@ from src.services.emergency_contact_service import EmergencyContactService
 from src.schemas.emergency_contact import EmergencyContactCreate, EmergencyContactUpdate, EmergencyContactResponse
 from src.utils.cache import Cache
 
+
 router = APIRouter(prefix="/emergency-contacts", tags=["Emergency Contacts"])
 
-@router.post("/", response_model=EmergencyContactResponse, responses={201: {"description": "Emergency contact created successfully."}, 400: {"description": "Invalid input or maximum contacts reached (5)."}})
+
+@router.post(
+    "/",
+    response_model=EmergencyContactResponse,
+    responses={
+        201: {"description": "Emergency contact created successfully."},
+        400: {"description": "Invalid input or maximum contacts reached (5)."},
+        **AUTH_ERROR_RESPONSES
+    }
+)
 def create_contact(
-    contact: EmergencyContactCreate, 
-    db: Session = Depends(get_db), 
-    session_token: Annotated[Optional[str], Cookie()] = None
+    contact: EmergencyContactCreate,
+    db: Session = Depends(get_db),
+    session_token: Annotated[Optional[str], Cookie(description="Session token for authentication")] = None
 ):
-    """Create a new emergency contact."""
+    """
+    Create a new emergency contact for a user. Requires authentication (admin or user). Enforces a maximum of 5 contacts per user. Clears cache for the user's contacts.
+    
+    Supports US4 and US8 by allowing users to add emergency contacts for real-time alerts.
+    """
     RequireAdminOrUser(user_id=contact.user_id,session_token=session_token, db=db)
     
     # Enforce max 5 contacts per user
@@ -31,9 +46,23 @@ def create_contact(
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
-@router.get("/user/{user_id}", response_model=List[EmergencyContactResponse], responses={200: {"description": "List of emergency contacts for the user."}, 404: {"description": "User not found."}})
-def get_contacts_by_user(user_id: int, db: Session = Depends(get_db)):
-    """Get all emergency contacts for a user."""
+@router.get(
+    "/user/{user_id}",
+    response_model=List[EmergencyContactResponse],
+    responses={
+        200: {"description": "List of emergency contacts for the user."},
+        404: {"description": "User not found."}
+    }
+)
+def get_contacts_by_user(
+    user_id: int = Path(..., description="ID of the user to retrieve contacts for"),
+    db: Session = Depends(get_db)
+):
+    """
+    List all emergency contacts for a user. Results are cached for 5 minutes.
+    
+    Supports US4 and US8 by providing access to emergency contacts for alerting in emergencies.
+    """
     cache_key = f"emergency_contacts_user_{user_id}"
     cached_contacts = Cache.get(cache_key)
     if cached_contacts:
@@ -43,17 +72,48 @@ def get_contacts_by_user(user_id: int, db: Session = Depends(get_db)):
     Cache.set(cache_key, [contact.model_dump() for contact in contacts_data], expiry=300)
     return contacts_data
 
-@router.get("/{contact_id}", response_model=EmergencyContactResponse, responses={200: {"description": "Emergency contact found."}, 404: {"description": "Contact not found."}})
-def get_contact_by_id(contact_id: int, db: Session = Depends(get_db)):
-    """Get an emergency contact by its ID."""
+@router.get(
+    "/{contact_id}",
+    response_model=EmergencyContactResponse,
+    responses={
+        200: {"description": "Emergency contact found."},
+        404: {"description": "Contact not found."}
+    }
+)
+def get_contact_by_id(
+    contact_id: int = Path(..., description="ID of the emergency contact to retrieve"),
+    db: Session = Depends(get_db)
+):
+    """
+    Retrieve an emergency contact by its unique ID.
+    
+    Supports US4 by letting users and caregivers review emergency contact details.
+    """
     contact = EmergencyContactService.get_contact_by_id(db, contact_id)
     if not contact:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Contact not found")
     return contact
 
-@router.put("/{contact_id}", response_model=EmergencyContactResponse, responses={200: {"description": "Emergency contact updated successfully."}, 404: {"description": "Contact not found."}})
-def update_contact(contact_id: int, contact_update: EmergencyContactUpdate, db: Session = Depends(get_db), isAuthenticated: bool = Depends(RequireAdminOrOwnership)):
-    """Update an existing emergency contact."""
+@router.put(
+    "/{contact_id}",
+    response_model=EmergencyContactResponse,
+    responses={
+        200: {"description": "Emergency contact updated successfully."},
+        404: {"description": "Contact not found."},
+        **AUTH_ERROR_RESPONSES
+    }
+)
+def update_contact(
+    contact_id: int = Path(..., description="ID of the emergency contact to update"),
+    contact_update: EmergencyContactUpdate = ...,
+    db: Session = Depends(get_db),
+    isAuthenticated: bool = Depends(RequireAdminOrOwnership)
+):
+    """
+    Update an existing emergency contact. Requires admin or owner. Clears user's contacts cache.
+    
+    Supports US4 by keeping emergency contact information up to date.
+    """
     contact = EmergencyContactService.update_contact(db, contact_id, contact_update)
     if not contact:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Contact not found")
@@ -61,9 +121,24 @@ def update_contact(contact_id: int, contact_update: EmergencyContactUpdate, db: 
     Cache.delete(f"emergency_contacts_user_{contact.user_id}")
     return contact
 
-@router.delete("/{contact_id}", responses={200: {"description": "Emergency contact deleted successfully."}, 404: {"description": "Contact not found."}})
-def delete_contact(contact_id: int, db: Session = Depends(get_db), isAuthenticated: bool = Depends(RequireAdminOrOwnership)):
-    """Delete an emergency contact by its ID."""
+@router.delete(
+    "/{contact_id}",
+    responses={
+        200: {"description": "Emergency contact deleted successfully."},
+        404: {"description": "Contact not found."},
+        **AUTH_ERROR_RESPONSES
+    }
+)
+def delete_contact(
+    contact_id: int = Path(..., description="ID of the emergency contact to delete"),
+    db: Session = Depends(get_db),
+    isAuthenticated: bool = Depends(RequireAdminOrOwnership)
+):
+    """
+    Delete an emergency contact by its unique ID. Requires admin or owner. Clears user's contacts cache.
+    
+    Supports US4 by allowing removal of outdated or incorrect emergency contacts.
+    """
     contact = EmergencyContactService.get_contact_by_id(db, contact_id)
     if not contact:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Contact not found")

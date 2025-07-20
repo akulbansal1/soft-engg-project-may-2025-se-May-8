@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Response, Cookie, Path
+from src.api.constants import AUTH_ERROR_RESPONSES
 from sqlalchemy.orm import Session
 from typing import List, Dict, Any, Optional
 
@@ -10,6 +11,7 @@ from src.schemas.passkey import (
     PasskeyCredentialResponse, 
     SignupResponse, 
     LoginResponse,
+    SerializedWebAuthnChallenge,
     PasskeyRegistrationRequest,
     PasskeyLoginRequest,
     PasskeyVerificationResult
@@ -25,7 +27,7 @@ from src.core.auth_middleware import RequireOwnership, RequireAuth
 
 router = APIRouter(
     prefix="/auth", 
-    tags=["🔐 Authentication"],
+    tags=["Authentication"],
     responses={
         400: {"description": "Bad Request - Invalid input data"},
         401: {"description": "Unauthorized - Authentication required"},
@@ -54,6 +56,8 @@ def send_sms_verification(
 ):
     """
     **Send SMS verification code to phone number**
+    
+    Uses Twilio service to send a secure 6-digit verification code to the user's phone number for identity confirmation during registration and login processes.
     
     - **phone**: Valid phone number (international format recommended: +1234567890)
     - Returns verification response with success status and expiry time
@@ -94,6 +98,8 @@ def verify_sms_code(
 ):
     """
     **Verify SMS code for phone number**
+    
+    Uses Twilio service to validate the verification code entered by the user against the code that was sent to their phone number.
     
     - **phone**: Phone number that received the verification code
     - **code**: 4-8 digit verification code from SMS
@@ -156,7 +162,7 @@ def get_sms_verification_status(
 
 @router.post(
     "/passkey/register/challenge", 
-    response_model=Dict[str, Any],
+    response_model=SerializedWebAuthnChallenge,
     status_code=status.HTTP_200_OK,
     summary="Create passkey registration challenge",
     description="Generate a WebAuthn registration challenge for passkey setup. This is step 1 of passkey registration.",
@@ -171,13 +177,7 @@ def create_passkey_registration_challenge(
     db: Session = Depends(get_db)
 ):
     """
-    **Create WebAuthn registration challenge for passkey setup**
-    
-    - **user_phone**: Phone number for the user account
-    - **user_name**: Display name for the user
-    - **user_dob**: Date of birth (optional)
-    - **user_gender**: Gender (optional)
-    - Returns WebAuthn challenge data for frontend
+    Create WebAuthn registration challenge for passkey setup. Returns challenge data for frontend.
     """
     try:
         # Create registration challenge
@@ -212,13 +212,12 @@ def create_passkey_registration_challenge(
 )
 def verify_passkey_registration(
     request: PasskeyRegistrationRequest,
-    response_data: Dict[str, Any],
+    response_data: PasskeyVerificationResult,
     response: Response,
     db: Session = Depends(get_db)
 ):
     """
-    Verify WebAuthn registration response and create passkey credential
-    Step 2 of passkey registration
+    Verify WebAuthn registration response and create passkey credential. Sets session cookie on success.
     """
     try:
         result = PasskeyService.verify_signup_response(
@@ -256,7 +255,7 @@ def verify_passkey_registration(
 
 @router.post(
     "/passkey/login/challenge", 
-    response_model=Dict[str, Any],
+    response_model=SerializedWebAuthnChallenge,
     status_code=status.HTTP_200_OK,
     summary="Create passkey login challenge",
     description="Generate a WebAuthn authentication challenge for passkey login. This is step 1 of passkey authentication.",
@@ -272,10 +271,7 @@ def create_passkey_login_challenge(
     db: Session = Depends(get_db)
 ):
     """
-    **Create WebAuthn authentication challenge for passkey login**
-    
-    - **credential_id**: Specific credential ID to use (optional)
-    - Returns WebAuthn challenge data for frontend authentication
+    Create WebAuthn authentication challenge for passkey login. Returns challenge data for frontend authentication.
     """
     try:
         challenge_data = PasskeyService.create_login_challenge(
@@ -305,18 +301,12 @@ def create_passkey_login_challenge(
 )
 def verify_passkey_login(
     request: PasskeyLoginRequest,
-    response_data: Dict[str, Any],
+    response_data: PasskeyVerificationResult,
     response: Response,
     db: Session = Depends(get_db)
 ):
     """
-    **Verify WebAuthn authentication response for passkey login**
-    
-    - **request**: Same login request from challenge step
-    - **response_data**: WebAuthn assertion response from frontend
-    - Authenticates user with passkey
-    - Sets HTTP-only session cookie on success
-    - Returns user ID and session expiry
+    Verify WebAuthn authentication response for passkey login. Authenticates user and sets session cookie on success.
     """
     try:
         result = PasskeyService.verify_login_response(
@@ -353,16 +343,15 @@ def verify_passkey_login(
         )
 
 @router.get(
-    "/passkey/user/{user_id}", 
+    "/passkey/user/{user_id}",
     response_model=List[PasskeyCredentialResponse],
     status_code=status.HTTP_200_OK,
     summary="Get user passkeys",
     description="Retrieve all passkey credentials for a specific user. Requires authentication and ownership.",
     responses={
         200: {"description": "List of user's passkey credentials"},
-        401: {"description": "Not authenticated"},
-        403: {"description": "Not authorized to access this user's data"},
-        404: {"description": "User not found"}
+        404: {"description": "User not found"},
+        **AUTH_ERROR_RESPONSES
     }
 )
 def get_user_passkeys(
@@ -371,11 +360,7 @@ def get_user_passkeys(
     db: Session = Depends(get_db)
 ):
     """
-    **Get all passkey credentials for a user**
-    
-    - **user_id**: ID of the user to get passkeys for
-    - Requires authentication and ownership verification
-    - Returns list of passkey credentials with metadata
+    Get all passkey credentials for a user. Requires authentication and ownership verification.
     """
     try:
         credentials = PasskeyService.get_user_credentials(db, user_id)
@@ -394,7 +379,7 @@ def get_user_passkeys(
     responses={
         200: {"description": "Logout successful", "content": {"application/json": {"example": {"message": "Logout successful"}}}},
         400: {"description": "Failed to logout"},
-        401: {"description": "Not authenticated"}
+        **AUTH_ERROR_RESPONSES
     }
 )
 def logout_user(
@@ -404,11 +389,7 @@ def logout_user(
     db: Session = Depends(get_db)
 ):
     """
-    **User Logout**
-    
-    - Invalidates current user session
-    - Clears session cookie from browser
-    - Requires valid authentication
+    Logout user by invalidating session and clearing session cookie. Requires authentication.
     """
     
     # For now, we'll just clear the cookie
@@ -438,17 +419,12 @@ def logout_user(
     description="Get information about the currently authenticated user.",
     responses={
         200: {"description": "Current user information"},
-        401: {"description": "Not authenticated"}
+        **AUTH_ERROR_RESPONSES
     }
 )
 def get_current_user_info(current_user = Depends(RequireAuth)):
     """
-    **Get current authenticated user information**
-    
-    - Returns user profile data for authenticated user
-    - Includes user ID, name, phone, and account status
+    Get information about the currently authenticated user.
     """
     return UserResponse.model_validate(current_user)
 
-
-## ADMIN ENDPOINT

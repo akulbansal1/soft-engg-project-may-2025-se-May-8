@@ -20,7 +20,8 @@ from src.schemas.passkey import (
     SignupResponse,
     LoginChallenge,
     LoginResponse,
-    PasskeyVerificationResult
+    PasskeyVerificationResult,
+    SerializedWebAuthnChallenge
 )
 from src.schemas.user import UserResponse, UserSession, UserCreate
 from src.core.config import settings
@@ -30,7 +31,7 @@ class PasskeyService:
     """Service class for PasskeyCredential operations"""
 
     @staticmethod
-    def _serialize_challenge_data(challenge_data) -> Dict[str, Any]:
+    def _serialize_challenge_data(challenge_data) -> SerializedWebAuthnChallenge:
         """
         Convert WebAuthn challenge data to JSON-serializable format
         Only extracts required fields: challenge, user, rp, pubKeyCredParams, timeout, attestation
@@ -72,10 +73,10 @@ class PasskeyService:
             if field in data_dict:
                 result[field] = convert_bytes(data_dict[field])
 
-        return result
+        return SerializedWebAuthnChallenge(**result)
 
     @staticmethod
-    def create_signup_challenge(db: Session, user_phone: str, user_name: str, user_dob: Optional[date] = None, user_gender: Optional[str] = None) -> Dict[str, Any]:
+    def create_signup_challenge(db: Session, user_phone: str, user_name: str, user_dob: Optional[date] = None, user_gender: Optional[str] = None) -> SerializedWebAuthnChallenge:
         """
         Create a WebAuthn registration challenge for a user
         Requires SMS verification before proceeding
@@ -123,7 +124,7 @@ class PasskeyService:
         # Store challenge in session/cache for verification
         # Convert challenge_data to dict for JSON serialization with proper base64 encoding
         challenge_dict = PasskeyService._serialize_challenge_data(challenge_data)
-        Cache.set(f"webauthn_signup_challenge_{user_id}", json.dumps(challenge_dict), expiry=settings.CHALLENGE_CACHE_EXPIRY)
+        Cache.set(f"webauthn_signup_challenge_{user_id}", json.dumps(challenge_dict.model_dump()), expiry=settings.CHALLENGE_CACHE_EXPIRY)
     
         return challenge_dict
 
@@ -175,11 +176,11 @@ class PasskeyService:
                 detail="Credential already exists"
             )
         
-        # Create new credential
+        # Create new credential  
         credential_data = PasskeyCredentialCreate(
             user_id=existing_user.id,
-            credential_id=response.credential_id,
-            public_key=response.public_key,
+            credential_id=str(response.credential_id),
+            public_key=str(response.credential_public_key),
             sign_count=0
         )
         
@@ -200,7 +201,7 @@ class PasskeyService:
     def create_login_challenge(
         db: Session, 
         credential_id: str
-    ) -> Dict[str, Any]:
+    ) -> SerializedWebAuthnChallenge:
         """
         Create a WebAuthn authentication challenge
         """
@@ -228,7 +229,7 @@ class PasskeyService:
         # Store challenge in session/cache for verification
         # Convert challenge_data to dict for JSON serialization with proper base64 encoding
         challenge_dict = PasskeyService._serialize_challenge_data(challenge_data)
-        Cache.set(f"webauthn_login_challenge_{credential.user_id}", json.dumps(challenge_dict), expiry=settings.CHALLENGE_CACHE_EXPIRY)     
+        Cache.set(f"webauthn_login_challenge_{credential.user_id}", json.dumps(challenge_dict.model_dump()), expiry=settings.CHALLENGE_CACHE_EXPIRY)     
         
         return challenge_dict
 

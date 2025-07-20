@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Path
+from src.api.constants import AUTH_ERROR_RESPONSES
 from sqlalchemy.orm import Session
 from typing import List
 
@@ -10,9 +11,25 @@ from src.utils.cache import Cache
 
 router = APIRouter(prefix="/doctors", tags=["Doctors"])
 
-@router.post("/", response_model=DoctorResponse, responses={201: {"description": "Doctor created successfully."}, 400: {"description": "Invalid input."}})
-def create_doctor(doctor: DoctorCreate, db: Session = Depends(get_db), isAdmin = Depends(RequireAdmin)):
-    """Create a new doctor record."""
+@router.post(
+    "/",
+    response_model=DoctorResponse,
+    responses={
+        201: {"description": "Doctor created successfully."},
+        400: {"description": "Invalid input."},
+        **AUTH_ERROR_RESPONSES
+    }
+)
+def create_doctor(
+    doctor: DoctorCreate,
+    db: Session = Depends(get_db),
+    isAdmin = Depends(RequireAdmin)
+):
+    """
+    Create a new doctor record. Requires admin authentication. Clears doctors cache.
+    
+    Supports US9 and US11 by enabling management of doctor profiles and facilitating report sharing.
+    """
     try:
         result = DoctorService.create_doctor(db, doctor)
         # Invalidate all doctors cache
@@ -23,7 +40,11 @@ def create_doctor(doctor: DoctorCreate, db: Session = Depends(get_db), isAdmin =
 
 @router.get("/", response_model=List[DoctorResponse], responses={200: {"description": "List of all doctors."}})
 def get_all_doctors(db: Session = Depends(get_db)):
-    """Get all doctors."""
+    """
+    Get all doctors. Results are cached for 5 minutes.
+    
+    Supports US9 and US11 by providing access to doctor lists for users and families.
+    """
     cache_key = "doctors_all"
     cached_doctors = Cache.get(cache_key)
     if cached_doctors:
@@ -34,8 +55,15 @@ def get_all_doctors(db: Session = Depends(get_db)):
     return doctors_data
 
 @router.get("/{doctor_id}", response_model=DoctorResponse, responses={200: {"description": "Doctor found."}, 404: {"description": "Doctor not found."}})
-def get_doctor_by_id(doctor_id: int, db: Session = Depends(get_db)):
-    """Get a doctor by ID."""
+def get_doctor_by_id(
+    doctor_id: int = Path(..., description="ID of the doctor to retrieve"),
+    db: Session = Depends(get_db)
+):
+    """
+    Get a doctor by ID. Results are cached for 5 minutes.
+    
+    Supports US9 and US11 by letting users and families review doctor details for appointments and consultations.
+    """
     cache_key = f"doctor_{doctor_id}"
     cached_doctor = Cache.get(cache_key)
     if cached_doctor:
@@ -47,9 +75,26 @@ def get_doctor_by_id(doctor_id: int, db: Session = Depends(get_db)):
     Cache.set(cache_key, doctor_data.model_dump(), expiry=300)
     return doctor_data
 
-@router.put("/{doctor_id}", response_model=DoctorResponse, responses={200: {"description": "Doctor updated successfully."}, 404: {"description": "Doctor not found."}})
-def update_doctor(doctor_id: int, doctor_update: DoctorUpdate, db: Session = Depends(get_db), isAdmin = Depends(RequireAdmin)):
-    """Update an existing doctor record."""
+@router.put(
+    "/{doctor_id}",
+    response_model=DoctorResponse,
+    responses={
+        200: {"description": "Doctor updated successfully."},
+        404: {"description": "Doctor not found."},
+        **AUTH_ERROR_RESPONSES
+    }
+)
+def update_doctor(
+    doctor_id: int = Path(..., description="ID of the doctor to update"),
+    doctor_update: DoctorUpdate = ...,
+    db: Session = Depends(get_db),
+    isAdmin = Depends(RequireAdmin)
+):
+    """
+    Update an existing doctor record. Requires admin authentication. Clears doctors cache.
+    
+    Supports US9 and US11 by keeping doctor information up to date for users and families.
+    """
     doctor = DoctorService.update_doctor(db, doctor_id, doctor_update)
     if not doctor:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Doctor not found")
@@ -58,9 +103,24 @@ def update_doctor(doctor_id: int, doctor_update: DoctorUpdate, db: Session = Dep
     Cache.delete(f"doctor_{doctor_id}")
     return doctor
 
-@router.delete("/{doctor_id}", responses={200: {"description": "Doctor deleted successfully."}, 404: {"description": "Doctor not found."}})
-def delete_doctor(doctor_id: int, db: Session = Depends(get_db), isAdmin = Depends(RequireAdmin)):
-    """Delete a doctor by ID."""
+@router.delete(
+    "/{doctor_id}",
+    responses={
+        200: {"description": "Doctor deleted successfully."},
+        404: {"description": "Doctor not found."},
+        **AUTH_ERROR_RESPONSES
+    }
+)
+def delete_doctor(
+    doctor_id: int = Path(..., description="ID of the doctor to delete"),
+    db: Session = Depends(get_db),
+    isAdmin = Depends(RequireAdmin)
+):
+    """
+    Delete a doctor by ID. Requires admin authentication. Clears doctors cache.
+    
+    Supports US9 and US11 by allowing removal of outdated or incorrect doctor records.
+    """
     doctor = DoctorService.get_doctor(db, doctor_id)
     if not doctor:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Doctor not found")

@@ -25,15 +25,16 @@ class TestPasskeyRegistrationAPI:
         }
         
         with patch('src.services.passkey_service.PasskeyService.create_signup_challenge') as mock_challenge:
-            # Mock WebAuthn challenge response as dictionary
-            mock_challenge_data = {
-                "challenge": base64.b64encode(b"test_challenge").decode(),
-                "user": {"id": "test_user_id", "name": "Test User"},
-                "rp": {"id": "localhost", "name": "Test RP"},
-                "pubKeyCredParams": [{"type": "public-key", "alg": -7}],
-                "timeout": 60000,
-                "attestation": "direct"
-            }
+            # Mock properly structured SerializedWebAuthnChallenge
+            from src.schemas.passkey import SerializedWebAuthnChallenge, WebAuthnUser, WebAuthnRelyingParty, PublicKeyCredentialParameters
+            mock_challenge_data = SerializedWebAuthnChallenge(
+                challenge=base64.b64encode(b"test_challenge").decode(),
+                user=WebAuthnUser(id="test_user_id", name="Test User", display_name="Test User"),
+                rp=WebAuthnRelyingParty(id="localhost", name="Test RP"),
+                pubKeyCredParams=[PublicKeyCredentialParameters(type="public-key", alg=-7)],
+                timeout=60000,
+                attestation="direct"
+            )
             mock_challenge.return_value = mock_challenge_data
             
             response = client.post("/api/v1/auth/passkey/register/challenge", json=request_data)
@@ -54,11 +55,15 @@ class TestPasskeyRegistrationAPI:
         }
         
         with patch('src.services.passkey_service.PasskeyService.create_signup_challenge') as mock_challenge:
-            mock_challenge_data = {
-                "challenge": base64.b64encode(b"test_challenge").decode(),
-                "user": {"id": "test_user_id", "name": "Test User"},
-                "rp": {"id": "localhost", "name": "Test RP"}
-            }
+            # Mock properly structured SerializedWebAuthnChallenge
+            from src.schemas.passkey import SerializedWebAuthnChallenge, WebAuthnUser, WebAuthnRelyingParty
+            mock_challenge_data = SerializedWebAuthnChallenge(
+                challenge=base64.b64encode(b"test_challenge").decode(),
+                user=WebAuthnUser(id="test_user_id", name="Test User", display_name="Test User"),
+                rp=WebAuthnRelyingParty(id="localhost", name="Test RP"),
+                timeout=60000,
+                attestation="direct"
+            )
             mock_challenge.return_value = mock_challenge_data
             
             response = client.post("/api/v1/auth/passkey/register/challenge", json=request_data)
@@ -93,15 +98,16 @@ class TestPasskeyRegistrationAPI:
         }
         
         with patch('src.services.passkey_service.PasskeyService.create_signup_challenge') as mock_challenge:
-            # Mock WebAuthn challenge response as dictionary
-            mock_challenge_data = {
-                "challenge": base64.b64encode(b"test_challenge").decode(),
-                "user": {"id": "test_user_id", "name": "Alice Cooper"},
-                "rp": {"id": "localhost", "name": "Test RP"},
-                "pubKeyCredParams": [{"type": "public-key", "alg": -7}],
-                "timeout": 60000,
-                "attestation": "direct"
-            }
+            # Mock properly structured SerializedWebAuthnChallenge
+            from src.schemas.passkey import SerializedWebAuthnChallenge, WebAuthnUser, WebAuthnRelyingParty, PublicKeyCredentialParameters
+            mock_challenge_data = SerializedWebAuthnChallenge(
+                challenge=base64.b64encode(b"test_challenge").decode(),
+                user=WebAuthnUser(id="test_user_id", name="Alice Cooper", display_name="Alice Cooper"),
+                rp=WebAuthnRelyingParty(id="localhost", name="Test RP"),
+                pubKeyCredParams=[PublicKeyCredentialParameters(type="public-key", alg=-7)],
+                timeout=60000,
+                attestation="direct"
+            )
             mock_challenge.return_value = mock_challenge_data
             
             response = client.post("/api/v1/auth/passkey/register/challenge", json=request_data)
@@ -127,14 +133,16 @@ class TestPasskeyRegistrationAPI:
         }
         
         with patch('src.services.passkey_service.PasskeyService.create_signup_challenge') as mock_challenge:
-            mock_challenge_data = {
-                "challenge": base64.b64encode(b"test_challenge").decode(),
-                "user": {"id": "test_user_id", "name": "Bob Builder"},
-                "rp": {"id": "localhost", "name": "Test RP"},
-                "pubKeyCredParams": [{"type": "public-key", "alg": -7}],
-                "timeout": 60000,
-                "attestation": "direct"
-            }
+            # Mock properly structured SerializedWebAuthnChallenge
+            from src.schemas.passkey import SerializedWebAuthnChallenge, WebAuthnUser, WebAuthnRelyingParty, PublicKeyCredentialParameters
+            mock_challenge_data = SerializedWebAuthnChallenge(
+                challenge=base64.b64encode(b"test_challenge").decode(),
+                user=WebAuthnUser(id="test_user_id", name="Bob Builder", display_name="Bob Builder"),
+                rp=WebAuthnRelyingParty(id="localhost", name="Test RP"),
+                pubKeyCredParams=[PublicKeyCredentialParameters(type="public-key", alg=-7)],
+                timeout=60000,
+                attestation="direct"
+            )
             mock_challenge.return_value = mock_challenge_data
             
             response = client.post("/api/v1/auth/passkey/register/challenge", json=request_data)
@@ -262,14 +270,15 @@ class TestPasskeyLoginAPI:
         }
 
         with patch('src.services.passkey_service.PasskeyService.create_login_challenge') as mock_challenge:
-            # Mock challenge response as a dictionary (not MagicMock)
-            mock_challenge_data = {
-                "challenge": base64.b64encode(b"test_challenge").decode(),
-                "allowCredentials": [{"id": credential.credential_id, "type": "public-key"}],
-                "rpId": "localhost",
-                "userVerification": "preferred",
-                "timeout": 60000
-            }
+            # Mock properly structured SerializedWebAuthnChallenge for login
+            from src.schemas.passkey import SerializedWebAuthnChallenge, WebAuthnUser, WebAuthnRelyingParty
+            mock_challenge_data = SerializedWebAuthnChallenge(
+                challenge=base64.b64encode(b"test_challenge").decode(),
+                user=WebAuthnUser(id="test_user_id", name="Test User", display_name="Test User"),
+                rp=WebAuthnRelyingParty(id="localhost", name="Test RP"),
+                timeout=60000,
+                attestation="direct"
+            )
             mock_challenge.return_value = mock_challenge_data
 
             response = client.post("/api/v1/auth/passkey/login/challenge", json=request_data)
@@ -277,7 +286,7 @@ class TestPasskeyLoginAPI:
             assert response.status_code == 200
             data = response.json()
             assert "challenge" in data
-            assert data["challenge"] == mock_challenge_data["challenge"]
+            assert data["challenge"] == mock_challenge_data.challenge
 
     def test_create_login_challenge_credential_not_found(self, client, test_db):
         """Test creating login challenge fails for non-existent credential"""
@@ -571,8 +580,16 @@ class TestAPIErrorHandling:
     def test_extremely_long_user_name(self, client):
         """Test handling of extremely long user names"""
         with patch('src.services.passkey_service.PasskeyService.create_signup_challenge') as mock_challenge:
-            # Mock simple challenge to avoid the serialization issue
-            mock_challenge.return_value = {"challenge": "simple_challenge"}
+            # Mock properly structured SerializedWebAuthnChallenge
+            from src.schemas.passkey import SerializedWebAuthnChallenge, WebAuthnUser, WebAuthnRelyingParty
+            mock_challenge_data = SerializedWebAuthnChallenge(
+                challenge="simple_challenge",
+                user=WebAuthnUser(id="test_user_id", name="Very long name", display_name="Very long name"),
+                rp=WebAuthnRelyingParty(id="localhost", name="Test RP"),
+                timeout=60000,
+                attestation="direct"
+            )
+            mock_challenge.return_value = mock_challenge_data
             
             long_name_data = {
                 "user_phone": "1234567890",
@@ -595,7 +612,16 @@ class TestAPIErrorHandling:
 
         def make_registration_request():
             with patch('src.services.passkey_service.PasskeyService.create_signup_challenge') as mock_challenge:
-                mock_challenge.return_value = {"challenge": "simple_challenge"}
+                # Mock properly structured SerializedWebAuthnChallenge
+                from src.schemas.passkey import SerializedWebAuthnChallenge, WebAuthnUser, WebAuthnRelyingParty
+                mock_challenge_data = SerializedWebAuthnChallenge(
+                    challenge="simple_challenge",
+                    user=WebAuthnUser(id="test_user_id", name="Test User", display_name="Test User"),
+                    rp=WebAuthnRelyingParty(id="localhost", name="Test RP"),
+                    timeout=60000,
+                    attestation="direct"
+                )
+                mock_challenge.return_value = mock_challenge_data
                 return client.post("/api/v1/auth/passkey/register/challenge", json=request_data)
 
         # Make concurrent requests
