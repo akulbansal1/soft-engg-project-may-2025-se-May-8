@@ -15,6 +15,8 @@ router = APIRouter(prefix="/appointments", tags=["Appointments"])
 def create_appointment(appointment: AppointmentCreate, db: Session = Depends(get_db), isAdmin = Depends(RequireAdmin)):
     """
     Create a new appointment record for a user. Requires admin. Clears cache for the user and doctor.
+    
+    Supports US3 by enabling appointment management and reminders for users.
     """
     try:
         result = AppointmentService.create_appointment(db, appointment)
@@ -31,6 +33,8 @@ def get_appointments_by_user(
 ):
     """
     List all appointments for a user. Results are cached for 5 minutes.
+    
+    Supports US3 and US7 by providing appointment lists for users and shared calendar access for families.
     """
     cache_key = f"appointments_user_{user_id}"
     cached_appointments = Cache.get(cache_key)
@@ -48,6 +52,8 @@ def get_appointments_by_doctor(
 ):
     """
     List all appointments for a doctor. Results are cached for 5 minutes.
+    
+    Supports US7 by enabling doctors and families to coordinate appointments.
     """
     cache_key = f"appointments_doctor_{doctor_id}"
     cached_appointments = Cache.get(cache_key)
@@ -65,6 +71,8 @@ def get_appointment_by_id(
 ):
     """
     Get an appointment by its ID.
+    
+    Supports US3 by allowing users and caregivers to review appointment details.
     """
     appointment = AppointmentService.get_appointment(db, appointment_id)
     if not appointment:
@@ -80,6 +88,8 @@ def update_appointment(
 ):
     """
     Update an existing appointment record. Requires admin. Clears cache for the user and doctor.
+    
+    Supports US3 by keeping appointment records up to date for users and families.
     """
     appointment = AppointmentService.update_appointment(db, appointment_id, appointment_update)
     if not appointment:
@@ -97,6 +107,8 @@ def delete_appointment(
 ):
     """
     Delete an appointment record by ID. Requires admin. Clears cache for the user and doctor.
+    
+    Supports US3 by allowing removal of outdated or incorrect appointments.
     """
     appointment = AppointmentService.get_appointment(db, appointment_id)
     if not appointment:

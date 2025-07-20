@@ -28,6 +28,8 @@ async def upload_document(
     """
     Upload a document file to S3 storage and return the file URL.
     
+    Uses Amazon S3 to securely store medical documents and reports in the cloud, automatically generating unique URLs for each file and providing instant access to documents from anywhere.
+    
     This endpoint accepts a file upload and stores it in S3, returning the public URL.
     The file will be given a unique name to prevent conflicts.
     
@@ -88,6 +90,8 @@ def create_document(
 ):
     """
     Create a new document record for a user. Requires authentication. Clears cache for the user.
+    
+    Supports US5 by enabling users to store medical documents digitally.
     """
     RequireAdminOrUser(user_id=document.user_id,session_token=session_token, db=db)
     
@@ -105,6 +109,8 @@ def get_documents_by_user(
 ):
     """
     List all documents for a user. Results are cached for 5 minutes.
+    
+    Supports US5 and US9 by providing access to digital medical reports for users and doctors.
     """
     cache_key = f"documents_user_{user_id}"
     cached_documents = Cache.get(cache_key)
@@ -122,6 +128,8 @@ def get_document_by_id(
 ):
     """
     Get a document by its ID.
+    
+    Supports US5 and US9 by letting users and doctors review specific medical documents.
     """
     document = DocumentService.get_document(db, document_id)
     if not document:
@@ -137,6 +145,8 @@ def update_document(
 ):
     """
     Update an existing document record. Requires admin or owner. Clears the user's cache.
+    
+    Supports US5 by keeping medical document records up to date.
     """
     document = DocumentService.update_document(db, document_id, document_update)
     if not document:
@@ -152,6 +162,8 @@ def delete_document(
 ):
     """
     Delete a document record by ID. Requires admin or owner. Clears the user's cache.
+    
+    Supports US5 by allowing removal of outdated or incorrect medical documents.
     """
     document = DocumentService.get_document(db, document_id)
     if not document:

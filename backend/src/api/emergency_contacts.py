@@ -18,6 +18,8 @@ def create_contact(
 ):
     """
     Create a new emergency contact for a user. Requires authentication (admin or user). Enforces a maximum of 5 contacts per user. Clears cache for the user's contacts.
+    
+    Supports US4 and US8 by allowing users to add emergency contacts for real-time alerts.
     """
     RequireAdminOrUser(user_id=contact.user_id,session_token=session_token, db=db)
     
@@ -40,6 +42,8 @@ def get_contacts_by_user(
 ):
     """
     List all emergency contacts for a user. Results are cached for 5 minutes.
+    
+    Supports US4 and US8 by providing access to emergency contacts for alerting in emergencies.
     """
     cache_key = f"emergency_contacts_user_{user_id}"
     cached_contacts = Cache.get(cache_key)
@@ -57,6 +61,8 @@ def get_contact_by_id(
 ):
     """
     Retrieve an emergency contact by its unique ID.
+    
+    Supports US4 by letting users and caregivers review emergency contact details.
     """
     contact = EmergencyContactService.get_contact_by_id(db, contact_id)
     if not contact:
@@ -72,6 +78,8 @@ def update_contact(
 ):
     """
     Update an existing emergency contact. Requires admin or owner. Clears user's contacts cache.
+    
+    Supports US4 by keeping emergency contact information up to date.
     """
     contact = EmergencyContactService.update_contact(db, contact_id, contact_update)
     if not contact:
@@ -88,6 +96,8 @@ def delete_contact(
 ):
     """
     Delete an emergency contact by its unique ID. Requires admin or owner. Clears user's contacts cache.
+    
+    Supports US4 by allowing removal of outdated or incorrect emergency contacts.
     """
     contact = EmergencyContactService.get_contact_by_id(db, contact_id)
     if not contact:

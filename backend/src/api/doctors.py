@@ -18,6 +18,8 @@ def create_doctor(
 ):
     """
     Create a new doctor record. Requires admin authentication. Clears doctors cache.
+    
+    Supports US9 and US11 by enabling management of doctor profiles and facilitating report sharing.
     """
     try:
         result = DoctorService.create_doctor(db, doctor)
@@ -31,6 +33,8 @@ def create_doctor(
 def get_all_doctors(db: Session = Depends(get_db)):
     """
     Get all doctors. Results are cached for 5 minutes.
+    
+    Supports US9 and US11 by providing access to doctor lists for users and families.
     """
     cache_key = "doctors_all"
     cached_doctors = Cache.get(cache_key)
@@ -48,6 +52,8 @@ def get_doctor_by_id(
 ):
     """
     Get a doctor by ID. Results are cached for 5 minutes.
+    
+    Supports US9 and US11 by letting users and families review doctor details for appointments and consultations.
     """
     cache_key = f"doctor_{doctor_id}"
     cached_doctor = Cache.get(cache_key)
@@ -69,6 +75,8 @@ def update_doctor(
 ):
     """
     Update an existing doctor record. Requires admin authentication. Clears doctors cache.
+    
+    Supports US9 and US11 by keeping doctor information up to date for users and families.
     """
     doctor = DoctorService.update_doctor(db, doctor_id, doctor_update)
     if not doctor:
@@ -86,6 +94,8 @@ def delete_doctor(
 ):
     """
     Delete a doctor by ID. Requires admin authentication. Clears doctors cache.
+    
+    Supports US9 and US11 by allowing removal of outdated or incorrect doctor records.
     """
     doctor = DoctorService.get_doctor(db, doctor_id)
     if not doctor:

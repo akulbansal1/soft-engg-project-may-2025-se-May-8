@@ -36,6 +36,8 @@ def get_user(
 ):
     """
     Get a user by ID. Only the user or an admin can access this endpoint.
+    
+    Supports US11 by allowing users and doctors to review user profiles and history.
     """
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -45,6 +47,8 @@ def get_user(
 def trigger_sos(user_id: int, db: Session = Depends(get_db), current_user = Depends(RequireOwnership)):
     """
     Trigger an SOS alert for a user. Sends emergency SMS messages to all of the user's registered emergency contacts. Only the user or an admin can trigger this. Returns the number of contacts notified and any failures.
+    
+    Supports US4 by providing an emergency alert system for users living alone.
     """
     
     # Get the user's emergency contacts

@@ -1,25 +1,37 @@
 openapi: 3.1.0
 info:
   title: SE Project API (Team 8, May 2025)
-  description: 'Backend API for Team 8''s Software Engineering Project (May 2025 Term)
-
-    This backend powers a web-based mobile application designed for senior citizens
-    and their family caregivers. The application enhances daily living and care coordination
-    through these core modules identified based on user stories:
-
-
-    - Easy-to-use UI: Senior-friendly design with large text, bold colors, and simple
-    navigation
-
-    - Medicine Tracker: Prescription management and medication identification
-
-    - Appointments Tracker: Book, view, and get reminders for doctor appointments
-
-    - SOS: Emergency alert system for designated contacts
-
-    - Documents Vault: Secure digital repository for medical reports and history
-
-    '
+  description: "Backend API for Team 8's Software Engineering Project (May 2025 Term)\n\
+    \nThis backend powers a web-based mobile application designed for senior citizens\
+    \ and their family caregivers. The application enhances daily living and care\
+    \ coordination through these core modules identified based on user stories:\n\n\
+    - Easy-to-use UI: Senior-friendly design with large text, bold colors, and simple\
+    \ navigation\n- Medicine Tracker: Prescription management and medication identification\n\
+    - Appointments Tracker: Book, view, and get reminders for doctor appointments\n\
+    - SOS: Emergency alert system for designated contacts\n- Documents Vault: Secure\
+    \ digital repository for medical reports and history\n\n---\n\n## User Story Mapping\n\
+    \n| # | User Story (Summary) | API Endpoints |\n|---|----------------------|--------------|\n\
+    | 1 | UI accessibility | (Frontend/UI, not API) |\n| 2 | Medicine management |\
+    \ `/medicines/`, `/medicines/{medicine_id}`, `/medicines/transcribe` |\n| 3 |\
+    \ Appointment management | `/appointments/`, `/appointments/user/{user_id}` |\n\
+    | 4 | Emergency contact notification | `/users/{user_id}/sos/trigger`, `/emergency-contacts/`\
+    \ |\n| 5 | Document storage | `/documents/`, `/documents/upload`, `/documents/user/{user_id}`\
+    \ |\n| 6 | Medication adherence tracking | `/medicines/`, `/medicines/user/{user_id}`\
+    \ |\n| 7 | Shared calendar | `/appointments/`, `/appointments/user/{user_id}`\
+    \ |\n| 8 | Emergency alerts | `/users/{user_id}/sos/trigger`, `/emergency-contacts/`\
+    \ |\n| 9 | Report sharing | `/documents/`, `/documents/user/{user_id}` |\n| 10\
+    \ | App tutorials | (Frontend/UI, not API) |\n| 11 | Patient history review |\
+    \ `/users/{user_id}`, `/documents/user/{user_id}`, `/medicines/user/{user_id}`,\
+    \ `/appointments/user/{user_id}` |\n| 12 | System reliability | (Infra/DevOps,\
+    \ not API) |\n\n---\n\n## External APIs\n\n- **Gemini**: Integrated using the\
+    \ `google-genai` Python SDK. Used for prescription transcription from audio in\
+    \ the following endpoint:\n    - `/medicines/transcribe`\n\n- **Twilio**: Integrated\
+    \ using the official `twilio` Python SDK. Used for WhatsApp-based authentication\
+    \ and verification in the following endpoints:\n    - `/auth/sms/send` (send verification\
+    \ code)\n    - `/auth/sms/verify` (verify code)\n    - `/auth/sms/resend` (resend\
+    \ verification code)\n\n- **Amazon S3**: Integrated using the `boto3` Python SDK.\
+    \ Used for secure storage and retrieval of medical documents and reports in the\
+    \ following endpoints:\n    - `/documents/upload`\n\n"
   contact:
     name: Github Repository
     url: https://github.com/akulbansal1/soft-engg-project-may-2025-se-May-8
@@ -83,7 +95,10 @@ paths:
       tags:
       - Users
       summary: Get User
-      description: Get a user by ID. Only the user or an admin can access this endpoint.
+      description: 'Get a user by ID. Only the user or an admin can access this endpoint.
+
+
+        Supports US11 by allowing users and doctors to review user profiles and history.'
       operationId: get_user_api_v1_users__user_id__get
       parameters:
       - name: user_id
@@ -118,9 +133,12 @@ paths:
       tags:
       - Users
       summary: Trigger Sos
-      description: Trigger an SOS alert for a user. Sends emergency SMS messages to
-        all of the user's registered emergency contacts. Only the user or an admin
+      description: 'Trigger an SOS alert for a user. Sends emergency SMS messages
+        to all of the user''s registered emergency contacts. Only the user or an admin
         can trigger this. Returns the number of contacts notified and any failures.
+
+
+        Supports US4 by providing an emergency alert system for users living alone.'
       operationId: trigger_sos_api_v1_users__user_id__sos_trigger_post
       parameters:
       - name: user_id
@@ -534,9 +552,13 @@ paths:
       tags:
       - Emergency Contacts
       summary: Create Contact
-      description: Create a new emergency contact for a user. Requires authentication
+      description: 'Create a new emergency contact for a user. Requires authentication
         (admin or user). Enforces a maximum of 5 contacts per user. Clears cache for
-        the user's contacts.
+        the user''s contacts.
+
+
+        Supports US4 and US8 by allowing users to add emergency contacts for real-time
+        alerts.'
       operationId: create_contact_api_v1_emergency_contacts__post
       parameters:
       - name: session_token
@@ -577,8 +599,12 @@ paths:
       tags:
       - Emergency Contacts
       summary: Get Contacts By User
-      description: List all emergency contacts for a user. Results are cached for
+      description: 'List all emergency contacts for a user. Results are cached for
         5 minutes.
+
+
+        Supports US4 and US8 by providing access to emergency contacts for alerting
+        in emergencies.'
       operationId: get_contacts_by_user_api_v1_emergency_contacts_user__user_id__get
       parameters:
       - name: user_id
@@ -613,7 +639,10 @@ paths:
       tags:
       - Emergency Contacts
       summary: Get Contact By Id
-      description: Retrieve an emergency contact by its unique ID.
+      description: 'Retrieve an emergency contact by its unique ID.
+
+
+        Supports US4 by letting users and caregivers review emergency contact details.'
       operationId: get_contact_by_id_api_v1_emergency_contacts__contact_id__get
       parameters:
       - name: contact_id
@@ -643,8 +672,11 @@ paths:
       tags:
       - Emergency Contacts
       summary: Update Contact
-      description: Update an existing emergency contact. Requires admin or owner.
-        Clears user's contacts cache.
+      description: 'Update an existing emergency contact. Requires admin or owner.
+        Clears user''s contacts cache.
+
+
+        Supports US4 by keeping emergency contact information up to date.'
       operationId: update_contact_api_v1_emergency_contacts__contact_id__put
       parameters:
       - name: contact_id
@@ -688,8 +720,11 @@ paths:
       tags:
       - Emergency Contacts
       summary: Delete Contact
-      description: Delete an emergency contact by its unique ID. Requires admin or
-        owner. Clears user's contacts cache.
+      description: 'Delete an emergency contact by its unique ID. Requires admin or
+        owner. Clears user''s contacts cache.
+
+
+        Supports US4 by allowing removal of outdated or incorrect emergency contacts.'
       operationId: delete_contact_api_v1_emergency_contacts__contact_id__delete
       parameters:
       - name: contact_id
@@ -727,8 +762,16 @@ paths:
       tags:
       - Medicines
       summary: Transcribe Prescription
-      description: Transcribe an audio prescription to structured medicine data. Requires
-        authentication. Returns structured medicine info or error.
+      description: 'Transcribe an audio prescription to structured medicine data.
+        Requires authentication. Returns structured medicine info or error.
+
+
+        Uses Gemini 2.5 Flash to take an audio recording of a prescription and convert
+        that audio into a JSON that auto-fills the add or update medicine form.
+
+
+        Supports US2 by enabling users to digitize prescriptions for easier medicine
+        management.'
       operationId: transcribe_prescription_api_v1_medicines_transcribe_post
       parameters:
       - name: user_id
@@ -774,8 +817,11 @@ paths:
       tags:
       - Medicines
       summary: Create Medicine
-      description: Create a new medicine record for a user. Requires authentication.
+      description: 'Create a new medicine record for a user. Requires authentication.
         Clears cache for the user.
+
+
+        Supports US2 by allowing users to add medicines for tracking and reminders.'
       operationId: create_medicine_api_v1_medicines__post
       parameters:
       - name: session_token
@@ -816,7 +862,11 @@ paths:
       tags:
       - Medicines
       summary: Get Medicines By User
-      description: List all medicines for a user. Results are cached for 5 minutes.
+      description: 'List all medicines for a user. Results are cached for 5 minutes.
+
+
+        Supports US2 and US6 by providing medicine lists for management and adherence
+        tracking.'
       operationId: get_medicines_by_user_api_v1_medicines_user__user_id__get
       parameters:
       - name: user_id
@@ -851,7 +901,10 @@ paths:
       tags:
       - Medicines
       summary: Get Medicine By Id
-      description: Get a medicine by its ID.
+      description: 'Get a medicine by its ID.
+
+
+        Supports US2 by letting users and caregivers review specific medicine details.'
       operationId: get_medicine_by_id_api_v1_medicines__medicine_id__get
       parameters:
       - name: medicine_id
@@ -881,8 +934,11 @@ paths:
       tags:
       - Medicines
       summary: Update Medicine
-      description: Update an existing medicine record. Requires admin or owner. Clears
-        the user's cache.
+      description: 'Update an existing medicine record. Requires admin or owner. Clears
+        the user''s cache.
+
+
+        Supports US2 by keeping medicine records up to date for accurate management.'
       operationId: update_medicine_api_v1_medicines__medicine_id__put
       parameters:
       - name: medicine_id
@@ -925,8 +981,12 @@ paths:
       tags:
       - Medicines
       summary: Delete Medicine
-      description: Delete a medicine record by ID. Requires admin or owner. Clears
-        the user's cache.
+      description: 'Delete a medicine record by ID. Requires admin or owner. Clears
+        the user''s cache.
+
+
+        Supports US2 by allowing removal of outdated or incorrect medicines from the
+        user''s profile.'
       operationId: delete_medicine_api_v1_medicines__medicine_id__delete
       parameters:
       - name: medicine_id
@@ -965,6 +1025,11 @@ paths:
       - Documents
       summary: Upload Document
       description: 'Upload a document file to S3 storage and return the file URL.
+
+
+        Uses Amazon S3 to securely store medical documents and reports in the cloud,
+        automatically generating unique URLs for each file and providing instant access
+        to documents from anywhere.
 
 
         This endpoint accepts a file upload and stores it in S3, returning the public
@@ -1025,8 +1090,11 @@ paths:
       tags:
       - Documents
       summary: Create Document
-      description: Create a new document record for a user. Requires authentication.
+      description: 'Create a new document record for a user. Requires authentication.
         Clears cache for the user.
+
+
+        Supports US5 by enabling users to store medical documents digitally.'
       operationId: create_document_api_v1_documents__post
       parameters:
       - name: session_token
@@ -1067,7 +1135,11 @@ paths:
       tags:
       - Documents
       summary: Get Documents By User
-      description: List all documents for a user. Results are cached for 5 minutes.
+      description: 'List all documents for a user. Results are cached for 5 minutes.
+
+
+        Supports US5 and US9 by providing access to digital medical reports for users
+        and doctors.'
       operationId: get_documents_by_user_api_v1_documents_user__user_id__get
       parameters:
       - name: user_id
@@ -1102,7 +1174,11 @@ paths:
       tags:
       - Documents
       summary: Get Document By Id
-      description: Get a document by its ID.
+      description: 'Get a document by its ID.
+
+
+        Supports US5 and US9 by letting users and doctors review specific medical
+        documents.'
       operationId: get_document_by_id_api_v1_documents__document_id__get
       parameters:
       - name: document_id
@@ -1132,8 +1208,11 @@ paths:
       tags:
       - Documents
       summary: Update Document
-      description: Update an existing document record. Requires admin or owner. Clears
-        the user's cache.
+      description: 'Update an existing document record. Requires admin or owner. Clears
+        the user''s cache.
+
+
+        Supports US5 by keeping medical document records up to date.'
       operationId: update_document_api_v1_documents__document_id__put
       parameters:
       - name: document_id
@@ -1176,8 +1255,11 @@ paths:
       tags:
       - Documents
       summary: Delete Document
-      description: Delete a document record by ID. Requires admin or owner. Clears
-        the user's cache.
+      description: 'Delete a document record by ID. Requires admin or owner. Clears
+        the user''s cache.
+
+
+        Supports US5 by allowing removal of outdated or incorrect medical documents.'
       operationId: delete_document_api_v1_documents__document_id__delete
       parameters:
       - name: document_id
@@ -1215,8 +1297,12 @@ paths:
       tags:
       - Doctors
       summary: Create Doctor
-      description: Create a new doctor record. Requires admin authentication. Clears
+      description: 'Create a new doctor record. Requires admin authentication. Clears
         doctors cache.
+
+
+        Supports US9 and US11 by enabling management of doctor profiles and facilitating
+        report sharing.'
       operationId: create_doctor_api_v1_doctors__post
       parameters:
       - name: session_token
@@ -1254,7 +1340,10 @@ paths:
       tags:
       - Doctors
       summary: Get All Doctors
-      description: Get all doctors. Results are cached for 5 minutes.
+      description: 'Get all doctors. Results are cached for 5 minutes.
+
+
+        Supports US9 and US11 by providing access to doctor lists for users and families.'
       operationId: get_all_doctors_api_v1_doctors__get
       responses:
         '200':
@@ -1271,7 +1360,11 @@ paths:
       tags:
       - Doctors
       summary: Get Doctor By Id
-      description: Get a doctor by ID. Results are cached for 5 minutes.
+      description: 'Get a doctor by ID. Results are cached for 5 minutes.
+
+
+        Supports US9 and US11 by letting users and families review doctor details
+        for appointments and consultations.'
       operationId: get_doctor_by_id_api_v1_doctors__doctor_id__get
       parameters:
       - name: doctor_id
@@ -1301,8 +1394,12 @@ paths:
       tags:
       - Doctors
       summary: Update Doctor
-      description: Update an existing doctor record. Requires admin authentication.
+      description: 'Update an existing doctor record. Requires admin authentication.
         Clears doctors cache.
+
+
+        Supports US9 and US11 by keeping doctor information up to date for users and
+        families.'
       operationId: update_doctor_api_v1_doctors__doctor_id__put
       parameters:
       - name: doctor_id
@@ -1346,8 +1443,12 @@ paths:
       tags:
       - Doctors
       summary: Delete Doctor
-      description: Delete a doctor by ID. Requires admin authentication. Clears doctors
+      description: 'Delete a doctor by ID. Requires admin authentication. Clears doctors
         cache.
+
+
+        Supports US9 and US11 by allowing removal of outdated or incorrect doctor
+        records.'
       operationId: delete_doctor_api_v1_doctors__doctor_id__delete
       parameters:
       - name: doctor_id
@@ -1385,8 +1486,11 @@ paths:
       tags:
       - Appointments
       summary: Create Appointment
-      description: Create a new appointment record for a user. Requires admin. Clears
+      description: 'Create a new appointment record for a user. Requires admin. Clears
         cache for the user and doctor.
+
+
+        Supports US3 by enabling appointment management and reminders for users.'
       operationId: create_appointment_api_v1_appointments__post
       parameters:
       - name: session_token
@@ -1425,7 +1529,11 @@ paths:
       tags:
       - Appointments
       summary: Get Appointments By User
-      description: List all appointments for a user. Results are cached for 5 minutes.
+      description: 'List all appointments for a user. Results are cached for 5 minutes.
+
+
+        Supports US3 and US7 by providing appointment lists for users and shared calendar
+        access for families.'
       operationId: get_appointments_by_user_api_v1_appointments_user__user_id__get
       parameters:
       - name: user_id
@@ -1460,7 +1568,10 @@ paths:
       tags:
       - Appointments
       summary: Get Appointments By Doctor
-      description: List all appointments for a doctor. Results are cached for 5 minutes.
+      description: 'List all appointments for a doctor. Results are cached for 5 minutes.
+
+
+        Supports US7 by enabling doctors and families to coordinate appointments.'
       operationId: get_appointments_by_doctor_api_v1_appointments_doctor__doctor_id__get
       parameters:
       - name: doctor_id
@@ -1495,7 +1606,10 @@ paths:
       tags:
       - Appointments
       summary: Get Appointment By Id
-      description: Get an appointment by its ID.
+      description: 'Get an appointment by its ID.
+
+
+        Supports US3 by allowing users and caregivers to review appointment details.'
       operationId: get_appointment_by_id_api_v1_appointments__appointment_id__get
       parameters:
       - name: appointment_id
@@ -1525,8 +1639,11 @@ paths:
       tags:
       - Appointments
       summary: Update Appointment
-      description: Update an existing appointment record. Requires admin. Clears cache
-        for the user and doctor.
+      description: 'Update an existing appointment record. Requires admin. Clears
+        cache for the user and doctor.
+
+
+        Supports US3 by keeping appointment records up to date for users and families.'
       operationId: update_appointment_api_v1_appointments__appointment_id__put
       parameters:
       - name: appointment_id
@@ -1569,8 +1686,11 @@ paths:
       tags:
       - Appointments
       summary: Delete Appointment
-      description: Delete an appointment record by ID. Requires admin. Clears cache
+      description: 'Delete an appointment record by ID. Requires admin. Clears cache
         for the user and doctor.
+
+
+        Supports US3 by allowing removal of outdated or incorrect appointments.'
       operationId: delete_appointment_api_v1_appointments__appointment_id__delete
       parameters:
       - name: appointment_id

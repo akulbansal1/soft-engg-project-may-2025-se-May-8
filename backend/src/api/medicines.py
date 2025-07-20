@@ -27,6 +27,10 @@ router = APIRouter(prefix="/medicines", tags=["Medicines"])
 async def transcribe_prescription(file: UploadFile = File(...), current_user: User = Depends(RequireAdminOrUser)):
     """
     Transcribe an audio prescription to structured medicine data. Requires authentication. Returns structured medicine info or error.
+    
+    Uses Gemini 2.5 Flash to take an audio recording of a prescription and convert that audio into a JSON that auto-fills the add or update medicine form.
+    
+    Supports US2 by enabling users to digitize prescriptions for easier medicine management.
     """
     if not file.content_type.startswith('audio/'):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid audio file format.")
@@ -45,6 +49,8 @@ def create_medicine(
 ):
     """
     Create a new medicine record for a user. Requires authentication. Clears cache for the user.
+    
+    Supports US2 by allowing users to add medicines for tracking and reminders.
     """
     
     RequireAdminOrUser(user_id=medicine.user_id,session_token=session_token, db=db)
@@ -63,6 +69,8 @@ def get_medicines_by_user(
 ):
     """
     List all medicines for a user. Results are cached for 5 minutes.
+    
+    Supports US2 and US6 by providing medicine lists for management and adherence tracking.
     """
     cache_key = f"medicines_user_{user_id}"
     cached_medicines = Cache.get(cache_key)
@@ -80,6 +88,8 @@ def get_medicine_by_id(
 ):
     """
     Get a medicine by its ID.
+    
+    Supports US2 by letting users and caregivers review specific medicine details.
     """
     medicine = MedicineService.get_medicine(db, medicine_id)
     if not medicine:
@@ -95,6 +105,8 @@ def update_medicine(
 ):
     """
     Update an existing medicine record. Requires admin or owner. Clears the user's cache.
+    
+    Supports US2 by keeping medicine records up to date for accurate management.
     """
     medicine = MedicineService.update_medicine(db, medicine_id, medicine_update)
     if not medicine:
@@ -110,6 +122,8 @@ def delete_medicine(
 ):
     """
     Delete a medicine record by ID. Requires admin or owner. Clears the user's cache.
+    
+    Supports US2 by allowing removal of outdated or incorrect medicines from the user's profile.
     """
     medicine = MedicineService.get_medicine(db, medicine_id)
     if not medicine:

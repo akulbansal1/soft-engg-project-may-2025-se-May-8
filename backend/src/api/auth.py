@@ -55,6 +55,8 @@ def send_sms_verification(
     """
     **Send SMS verification code to phone number**
     
+    Uses Twilio service to send a secure 6-digit verification code to the user's phone number for identity confirmation during registration and login processes.
+    
     - **phone**: Valid phone number (international format recommended: +1234567890)
     - Returns verification response with success status and expiry time
     - Code expires in 10 minutes
@@ -94,6 +96,8 @@ def verify_sms_code(
 ):
     """
     **Verify SMS code for phone number**
+    
+    Uses Twilio service to validate the verification code entered by the user against the code that was sent to their phone number.
     
     - **phone**: Phone number that received the verification code
     - **code**: 4-8 digit verification code from SMS
