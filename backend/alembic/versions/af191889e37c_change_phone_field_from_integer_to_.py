@@ -19,9 +19,6 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # SQLite doesn't support ALTER COLUMN, so we need to recreate the table
-    
-    # Create new table with correct phone type
     op.create_table('users_new',
         sa.Column('id', sa.Integer(), nullable=False),
         sa.Column('name', sa.String(), nullable=False),
@@ -35,18 +32,14 @@ def upgrade() -> None:
     op.create_index(op.f('ix_users_new_id'), 'users_new', ['id'], unique=False)
     op.create_index(op.f('ix_users_new_phone'), 'users_new', ['phone'], unique=True)
     
-    # Copy data from old table to new table, converting phone to string
     op.execute("INSERT INTO users_new (id, name, phone, dob, gender, is_active, created_at) SELECT id, name, CAST(phone AS TEXT), dob, gender, is_active, created_at FROM users")
     
-    # Drop old table
     op.drop_table('users')
     
-    # Rename new table
     op.rename_table('users_new', 'users')
 
 
 def downgrade() -> None:
-    # Create old table with integer phone type
     op.create_table('users_new',
         sa.Column('id', sa.Integer(), nullable=False),
         sa.Column('name', sa.String(), nullable=False),
@@ -60,12 +53,8 @@ def downgrade() -> None:
     op.create_index(op.f('ix_users_new_id'), 'users_new', ['id'], unique=False)
     op.create_index(op.f('ix_users_new_phone'), 'users_new', ['phone'], unique=True)
     
-    # Copy data back, converting phone to integer
     op.execute("INSERT INTO users_new (id, name, phone, dob, gender, is_active, created_at) SELECT id, name, CAST(phone AS INTEGER), dob, gender, is_active, created_at FROM users")
     
-    # Drop current table
     op.drop_table('users')
     
-    # Rename new table
     op.rename_table('users_new', 'users')
-    # ### end Alembic commands ###

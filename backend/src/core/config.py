@@ -7,7 +7,6 @@ load_dotenv()
 class Settings:
     """Application settings and configuration"""
 
-
     # Database
     DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./app.db")
     
@@ -76,10 +75,6 @@ class Settings:
     GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 
     MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB in bytes
-
-    # Celery
-    CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/0")
-    CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", "redis://localhost:6379/0")
     
     # CORS
     ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",")

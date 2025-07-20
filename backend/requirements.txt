@@ -8,9 +8,8 @@ psycopg2-binary==2.9.10
 psycopg[binary]==3.2.9
 alembic==1.13.1
 
-# Redis for caching and broker
+# Redis for caching
 redis==5.0.1
-celery==5.3.6
 
 # Environment variables
 python-dotenv==1.0.1

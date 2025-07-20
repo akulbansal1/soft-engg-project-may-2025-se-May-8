@@ -11,7 +11,7 @@ from src.services.sms_service import get_sms_service
 from src.schemas.user import  UserResponse, UserSession
 from src.schemas.sos import SOSResponse
 
-from src.core.auth_middleware import RequireAuth, RequireOwnership
+from src.core.auth_middleware import RequireAuth, RequireOwnership, RequireAdminOrUser
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
@@ -26,7 +26,7 @@ def get_users(
     skip: int = Query(0, description="Number of records to skip for pagination"),
     limit: int = Query(100, description="Maximum number of users to return"),
     db: Session = Depends(get_db),
-    current_user = Depends(RequireAuth)
+    current_user = Depends(RequireAdminOrUser)
 ):
     """
     List all users. Returns a paginated list. Requires authentication. Results are cached for 5 minutes.
@@ -114,16 +114,3 @@ def trigger_sos(user_id: int, db: Session = Depends(get_db), current_user = Depe
         contacts_notified=contacts_notified,
         failed_notifications=failed_notifications
     )
-
-## TODO: Implement this endpoint properly with the right authentication setting
-# @router.put("/{user_id}", response_model=UserResponse)
-# def update_user(user_id: int, user_update: UserUpdate, db: Session = Depends(get_db)):
-#     """Update user information"""
-#     updated_user = UserService.update_user(db, user_id, user_update)
-#     if not updated_user:
-#         raise HTTPException(status_code=404, detail="User not found")
-    
-#     # Clear cache
-#     Cache.clear_pattern("users_list_*")
-    
-#     return updated_user
