@@ -66,6 +66,12 @@ paths:
           default: 100
           title: Limit
         description: Maximum number of users to return
+      - name: user_id
+        in: query
+        required: false
+        schema:
+          type: integer
+          title: User Id
       - name: session_token
         in: cookie
         required: false
@@ -310,10 +316,7 @@ paths:
           content:
             application/json:
               schema:
-                additionalProperties: true
-                type: object
-                title: Response Create Passkey Registration Challenge Api V1 Auth
-                  Passkey Register Challenge Post
+                $ref: '#/components/schemas/SerializedWebAuthnChallenge'
         '400':
           description: Invalid user data
         '401':
@@ -383,10 +386,7 @@ paths:
           content:
             application/json:
               schema:
-                additionalProperties: true
-                type: object
-                title: Response Create Passkey Login Challenge Api V1 Auth Passkey
-                  Login Challenge Post
+                $ref: '#/components/schemas/SerializedWebAuthnChallenge'
         '400':
           description: Invalid credential ID
         '401':
@@ -2039,9 +2039,7 @@ components:
         request:
           $ref: '#/components/schemas/PasskeyLoginRequest'
         response_data:
-          additionalProperties: true
-          type: object
-          title: Response Data
+          $ref: '#/components/schemas/PasskeyVerificationResult'
       type: object
       required:
       - request
@@ -2052,9 +2050,7 @@ components:
         request:
           $ref: '#/components/schemas/PasskeyRegistrationRequest'
         response_data:
-          additionalProperties: true
-          type: object
-          title: Response Data
+          $ref: '#/components/schemas/PasskeyVerificationResult'
       type: object
       required:
       - request
@@ -2718,6 +2714,24 @@ components:
       type: object
       title: PasskeyVerificationResult
       description: Result of passkey verification.
+    PublicKeyCredentialParameters:
+      properties:
+        type:
+          type: string
+          title: Type
+          description: Credential type
+          example: public-key
+        alg:
+          type: integer
+          title: Alg
+          description: Algorithm identifier
+          example: -7
+      type: object
+      required:
+      - type
+      - alg
+      title: PublicKeyCredentialParameters
+      description: Schema for public key credential parameters.
     SMSVerificationCodeRequest:
       properties:
         phone:
@@ -2856,6 +2870,64 @@ components:
         - '+919812345678'
         message: Some SOS messages failed to send
         success: false
+    SerializedWebAuthnChallenge:
+      properties:
+        challenge:
+          type: string
+          title: Challenge
+          description: Base64-encoded cryptographic challenge
+          example: pGr/DLUhVo1bgo4xQLfYO8J5HHVBiupt8XDDR/osCxApMawNrq2y27bTJMlLwslWVOmaZIVtvgkXUbOE9rjSIw==
+        user:
+          $ref: '#/components/schemas/WebAuthnUser'
+          description: User information for the challenge
+        rp:
+          $ref: '#/components/schemas/WebAuthnRelyingParty'
+          description: Relying party information
+        pubKeyCredParams:
+          anyOf:
+          - items:
+              $ref: '#/components/schemas/PublicKeyCredentialParameters'
+            type: array
+          - type: 'null'
+          title: Pubkeycredparams
+          description: Supported public key credential parameters
+          example:
+          - alg: -7
+            type: public-key
+        timeout:
+          type: integer
+          title: Timeout
+          description: Challenge timeout in milliseconds
+          example: 300000
+        attestation:
+          type: string
+          title: Attestation
+          description: Attestation preference
+          example: none
+      type: object
+      required:
+      - challenge
+      - user
+      - rp
+      - timeout
+      - attestation
+      title: SerializedWebAuthnChallenge
+      description: Schema for serialized WebAuthn challenge data returned by _serialize_challenge_data
+        method.
+      example:
+        attestation: none
+        challenge: pGr/DLUhVo1bgo4xQLfYO8J5HHVBiupt8XDDR/osCxApMawNrq2y27bTJMlLwslWVOmaZIVtvgkXUbOE9rjSIw==
+        pubKeyCredParams:
+        - alg: -7
+          type: public-key
+        rp:
+          id: localhost
+          name: SE Project API
+        timeout: 300000
+        user:
+          display_name: Test User
+          id: MQ==
+          name: '9876543210'
     UserResponse:
       properties:
         name:
@@ -2937,3 +3009,45 @@ components:
       - msg
       - type
       title: ValidationError
+    WebAuthnRelyingParty:
+      properties:
+        name:
+          type: string
+          title: Name
+          description: Relying party name
+          example: SE Project API
+        id:
+          type: string
+          title: Id
+          description: Relying party identifier
+          example: localhost
+      type: object
+      required:
+      - name
+      - id
+      title: WebAuthnRelyingParty
+      description: Schema for relying party information in WebAuthn challenges.
+    WebAuthnUser:
+      properties:
+        id:
+          type: string
+          title: Id
+          description: Base64-encoded user ID
+          example: MQ==
+        name:
+          type: string
+          title: Name
+          description: User name (typically phone number)
+          example: '9876543210'
+        display_name:
+          type: string
+          title: Display Name
+          description: User display name
+          example: Test User
+      type: object
+      required:
+      - id
+      - name
+      - display_name
+      title: WebAuthnUser
+      description: Schema for user information in WebAuthn challenges.
