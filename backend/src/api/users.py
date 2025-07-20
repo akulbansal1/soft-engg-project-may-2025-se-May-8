@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import Query, Path
 from sqlalchemy.orm import Session
 from typing import List
 
@@ -11,31 +12,40 @@ from src.schemas.sos import SOSResponse
 
 from src.core.auth_middleware import RequireAuth, RequireOwnership
 
-router = APIRouter(prefix="/users", tags=["🔐 Users"])
+router = APIRouter(prefix="/users", tags=["Users"])
 
 @router.get("/", response_model=List[UserResponse])
-def get_users(skip: int = 0, limit: int = 100, db: Session = Depends(get_db), current_user = Depends(RequireAuth)):
-    """Get all users with caching"""
-    
-    # Get from database
+def get_users(
+    skip: int = Query(0, description="Number of records to skip for pagination"),
+    limit: int = Query(100, description="Maximum number of users to return"),
+    db: Session = Depends(get_db),
+    current_user = Depends(RequireAuth)
+):
+    """
+    List all users. Returns a paginated list. Requires authentication. Results are cached for 5 minutes.
+    """
     users = UserService.get_users(db, skip=skip, limit=limit)
-    
-    # Convert to response format and cache for 5 minutes
     users_data = [UserResponse.model_validate(user) for user in users]
-
     return users_data
 
 @router.get("/{user_id}", response_model=UserResponse)
-def get_user(user_id: int, db: Session = Depends(get_db), user = Depends(RequireOwnership)):
-    """Get user by ID"""
-    
+def get_user(
+    user_id: int = Path(..., description="ID of the user to retrieve"),
+    db: Session = Depends(get_db),
+    user = Depends(RequireOwnership)
+):
+    """
+    Get a user by ID. Only the user or an admin can access this endpoint.
+    """
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     return UserResponse.model_validate(user)
 
 @router.post("/{user_id}/sos/trigger", response_model=SOSResponse)
 def trigger_sos(user_id: int, db: Session = Depends(get_db), current_user = Depends(RequireOwnership)):
-    """Trigger SOS - Send emergency messages to all emergency contacts"""
+    """
+    Trigger an SOS alert for a user. Sends emergency SMS messages to all of the user's registered emergency contacts. Only the user or an admin can trigger this. Returns the number of contacts notified and any failures.
+    """
     
     # Get the user's emergency contacts
     emergency_contacts = EmergencyContactService.get_contacts_by_user(db, user_id)

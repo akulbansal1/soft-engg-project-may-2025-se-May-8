@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import Path
 from sqlalchemy.orm import Session
 from typing import List
 
@@ -12,7 +13,9 @@ router = APIRouter(prefix="/appointments", tags=["Appointments"])
 
 @router.post("/", response_model=AppointmentResponse, responses={201: {"description": "Appointment created successfully."}, 400: {"description": "Invalid input."}})
 def create_appointment(appointment: AppointmentCreate, db: Session = Depends(get_db), isAdmin = Depends(RequireAdmin)):
-    """Create a new appointment record."""
+    """
+    Create a new appointment record for a user. Requires admin. Clears cache for the user and doctor.
+    """
     try:
         result = AppointmentService.create_appointment(db, appointment)
         Cache.delete(f"appointments_user_{appointment.user_id}")
@@ -22,8 +25,13 @@ def create_appointment(appointment: AppointmentCreate, db: Session = Depends(get
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 @router.get("/user/{user_id}", response_model=List[AppointmentResponse], responses={200: {"description": "List of appointments for the user."}, 404: {"description": "User not found."}})
-def get_appointments_by_user(user_id: int, db: Session = Depends(get_db)):
-    """Get all appointments for a user."""
+def get_appointments_by_user(
+    user_id: int = Path(..., description="ID of the user to get appointments for"),
+    db: Session = Depends(get_db)
+):
+    """
+    List all appointments for a user. Results are cached for 5 minutes.
+    """
     cache_key = f"appointments_user_{user_id}"
     cached_appointments = Cache.get(cache_key)
     if cached_appointments:
@@ -34,8 +42,13 @@ def get_appointments_by_user(user_id: int, db: Session = Depends(get_db)):
     return appointments_data
 
 @router.get("/doctor/{doctor_id}", response_model=List[AppointmentResponse], responses={200: {"description": "List of appointments for the doctor."}, 404: {"description": "Doctor not found."}})
-def get_appointments_by_doctor(doctor_id: int, db: Session = Depends(get_db)):
-    """Get all appointments for a doctor."""
+def get_appointments_by_doctor(
+    doctor_id: int = Path(..., description="ID of the doctor to get appointments for"),
+    db: Session = Depends(get_db)
+):
+    """
+    List all appointments for a doctor. Results are cached for 5 minutes.
+    """
     cache_key = f"appointments_doctor_{doctor_id}"
     cached_appointments = Cache.get(cache_key)
     if cached_appointments:
@@ -46,16 +59,28 @@ def get_appointments_by_doctor(doctor_id: int, db: Session = Depends(get_db)):
     return appointments_data
 
 @router.get("/{appointment_id}", response_model=AppointmentResponse, responses={200: {"description": "Appointment found."}, 404: {"description": "Appointment not found."}})
-def get_appointment_by_id(appointment_id: int, db: Session = Depends(get_db)):
-    """Get an appointment by its ID."""
+def get_appointment_by_id(
+    appointment_id: int = Path(..., description="ID of the appointment to retrieve"),
+    db: Session = Depends(get_db)
+):
+    """
+    Get an appointment by its ID.
+    """
     appointment = AppointmentService.get_appointment(db, appointment_id)
     if not appointment:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Appointment not found")
     return appointment
 
 @router.put("/{appointment_id}", response_model=AppointmentResponse, responses={200: {"description": "Appointment updated successfully."}, 404: {"description": "Appointment not found."}})
-def update_appointment(appointment_id: int, appointment_update: AppointmentUpdate, db: Session = Depends(get_db), isAdmin = Depends(RequireAdmin)):
-    """Update an existing appointment record."""
+def update_appointment(
+    appointment_id: int = Path(..., description="ID of the appointment to update"),
+    appointment_update: AppointmentUpdate = None,
+    db: Session = Depends(get_db),
+    isAdmin = Depends(RequireAdmin)
+):
+    """
+    Update an existing appointment record. Requires admin. Clears cache for the user and doctor.
+    """
     appointment = AppointmentService.update_appointment(db, appointment_id, appointment_update)
     if not appointment:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Appointment not found")
@@ -65,8 +90,14 @@ def update_appointment(appointment_id: int, appointment_update: AppointmentUpdat
     return appointment
 
 @router.delete("/{appointment_id}", responses={200: {"description": "Appointment deleted successfully."}, 404: {"description": "Appointment not found."}})
-def delete_appointment(appointment_id: int, db: Session = Depends(get_db), isAdmin = Depends(RequireAdmin)):
-    """Delete an appointment by its ID."""
+def delete_appointment(
+    appointment_id: int = Path(..., description="ID of the appointment to delete"),
+    db: Session = Depends(get_db),
+    isAdmin = Depends(RequireAdmin)
+):
+    """
+    Delete an appointment record by ID. Requires admin. Clears cache for the user and doctor.
+    """
     appointment = AppointmentService.get_appointment(db, appointment_id)
     if not appointment:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Appointment not found")

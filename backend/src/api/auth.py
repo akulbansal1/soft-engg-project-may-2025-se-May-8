@@ -25,7 +25,7 @@ from src.core.auth_middleware import RequireOwnership, RequireAuth
 
 router = APIRouter(
     prefix="/auth", 
-    tags=["🔐 Authentication"],
+    tags=["Authentication"],
     responses={
         400: {"description": "Bad Request - Invalid input data"},
         401: {"description": "Unauthorized - Authentication required"},
@@ -171,13 +171,7 @@ def create_passkey_registration_challenge(
     db: Session = Depends(get_db)
 ):
     """
-    **Create WebAuthn registration challenge for passkey setup**
-    
-    - **user_phone**: Phone number for the user account
-    - **user_name**: Display name for the user
-    - **user_dob**: Date of birth (optional)
-    - **user_gender**: Gender (optional)
-    - Returns WebAuthn challenge data for frontend
+    Create WebAuthn registration challenge for passkey setup. Returns challenge data for frontend.
     """
     try:
         # Create registration challenge
@@ -217,8 +211,7 @@ def verify_passkey_registration(
     db: Session = Depends(get_db)
 ):
     """
-    Verify WebAuthn registration response and create passkey credential
-    Step 2 of passkey registration
+    Verify WebAuthn registration response and create passkey credential. Sets session cookie on success.
     """
     try:
         result = PasskeyService.verify_signup_response(
@@ -272,10 +265,7 @@ def create_passkey_login_challenge(
     db: Session = Depends(get_db)
 ):
     """
-    **Create WebAuthn authentication challenge for passkey login**
-    
-    - **credential_id**: Specific credential ID to use (optional)
-    - Returns WebAuthn challenge data for frontend authentication
+    Create WebAuthn authentication challenge for passkey login. Returns challenge data for frontend authentication.
     """
     try:
         challenge_data = PasskeyService.create_login_challenge(
@@ -310,13 +300,7 @@ def verify_passkey_login(
     db: Session = Depends(get_db)
 ):
     """
-    **Verify WebAuthn authentication response for passkey login**
-    
-    - **request**: Same login request from challenge step
-    - **response_data**: WebAuthn assertion response from frontend
-    - Authenticates user with passkey
-    - Sets HTTP-only session cookie on success
-    - Returns user ID and session expiry
+    Verify WebAuthn authentication response for passkey login. Authenticates user and sets session cookie on success.
     """
     try:
         result = PasskeyService.verify_login_response(
@@ -371,11 +355,7 @@ def get_user_passkeys(
     db: Session = Depends(get_db)
 ):
     """
-    **Get all passkey credentials for a user**
-    
-    - **user_id**: ID of the user to get passkeys for
-    - Requires authentication and ownership verification
-    - Returns list of passkey credentials with metadata
+    Get all passkey credentials for a user. Requires authentication and ownership verification.
     """
     try:
         credentials = PasskeyService.get_user_credentials(db, user_id)
@@ -404,11 +384,7 @@ def logout_user(
     db: Session = Depends(get_db)
 ):
     """
-    **User Logout**
-    
-    - Invalidates current user session
-    - Clears session cookie from browser
-    - Requires valid authentication
+    Logout user by invalidating session and clearing session cookie. Requires authentication.
     """
     
     # For now, we'll just clear the cookie
@@ -443,10 +419,7 @@ def logout_user(
 )
 def get_current_user_info(current_user = Depends(RequireAuth)):
     """
-    **Get current authenticated user information**
-    
-    - Returns user profile data for authenticated user
-    - Includes user ID, name, phone, and account status
+    Get information about the currently authenticated user.
     """
     return UserResponse.model_validate(current_user)
 

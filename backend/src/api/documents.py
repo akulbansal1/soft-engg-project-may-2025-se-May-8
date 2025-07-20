@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Cookie, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, status, Cookie, UploadFile, File, Path
 from sqlalchemy.orm import Session
 from typing import List, Optional, Annotated
 
@@ -83,9 +84,11 @@ async def upload_document(
 def create_document(
     document: DocumentCreate, 
     db: Session = Depends(get_db), 
-    session_token: Annotated[Optional[str], Cookie()] = None
+    session_token: Annotated[Optional[str], Cookie(description="Session token for authentication")] = None
 ):
-    """Create a new document record."""
+    """
+    Create a new document record for a user. Requires authentication. Clears cache for the user.
+    """
     RequireAdminOrUser(user_id=document.user_id,session_token=session_token, db=db)
     
     try:
@@ -96,8 +99,13 @@ def create_document(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 @router.get("/user/{user_id}", response_model=List[DocumentResponse], responses={200: {"description": "List of documents for the user."}, 404: {"description": "User not found."}})
-def get_documents_by_user(user_id: int, db: Session = Depends(get_db)):
-    """Get all documents for a user."""
+def get_documents_by_user(
+    user_id: int = Path(..., description="ID of the user to get documents for"),
+    db: Session = Depends(get_db)
+):
+    """
+    List all documents for a user. Results are cached for 5 minutes.
+    """
     cache_key = f"documents_user_{user_id}"
     cached_documents = Cache.get(cache_key)
     if cached_documents:
@@ -108,16 +116,28 @@ def get_documents_by_user(user_id: int, db: Session = Depends(get_db)):
     return documents_data
 
 @router.get("/{document_id}", response_model=DocumentResponse, responses={200: {"description": "Document found."}, 404: {"description": "Document not found."}})
-def get_document_by_id(document_id: int, db: Session = Depends(get_db)):
-    """Get a document by its ID."""
+def get_document_by_id(
+    document_id: int = Path(..., description="ID of the document to retrieve"),
+    db: Session = Depends(get_db)
+):
+    """
+    Get a document by its ID.
+    """
     document = DocumentService.get_document(db, document_id)
     if not document:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
     return document
 
 @router.put("/{document_id}", response_model=DocumentResponse, responses={200: {"description": "Document updated successfully."}, 404: {"description": "Document not found."}})
-def update_document(document_id: int, document_update: DocumentUpdate, db: Session = Depends(get_db), isAuthenticated: bool = Depends(RequireAdminOrOwnership)):
-    """Update an existing document record."""
+def update_document(
+    document_id: int = Path(..., description="ID of the document to update"),
+    document_update: DocumentUpdate = None,
+    db: Session = Depends(get_db),
+    isAuthenticated: bool = Depends(RequireAdminOrOwnership)
+):
+    """
+    Update an existing document record. Requires admin or owner. Clears the user's cache.
+    """
     document = DocumentService.update_document(db, document_id, document_update)
     if not document:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
@@ -125,8 +145,14 @@ def update_document(document_id: int, document_update: DocumentUpdate, db: Sessi
     return document
 
 @router.delete("/{document_id}", responses={200: {"description": "Document deleted successfully."}, 404: {"description": "Document not found."}})
-def delete_document(document_id: int, db: Session = Depends(get_db), isAuthenticated: bool = Depends(RequireAdminOrOwnership)):
-    """Delete a document by its ID."""
+def delete_document(
+    document_id: int = Path(..., description="ID of the document to delete"),
+    db: Session = Depends(get_db),
+    isAuthenticated: bool = Depends(RequireAdminOrOwnership)
+):
+    """
+    Delete a document record by ID. Requires admin or owner. Clears the user's cache.
+    """
     document = DocumentService.get_document(db, document_id)
     if not document:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")

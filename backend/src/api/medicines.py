@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Cookie, File, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, status, Cookie, File, UploadFile, Path
 from sqlalchemy.orm import Session
 from typing import List, Optional, Annotated
 
@@ -25,7 +25,9 @@ router = APIRouter(prefix="/medicines", tags=["Medicines"])
     },
 )
 async def transcribe_prescription(file: UploadFile = File(...), current_user: User = Depends(RequireAdminOrUser)):
-    """Convert audio prescription to structured JSON."""
+    """
+    Transcribe an audio prescription to structured medicine data. Requires authentication. Returns structured medicine info or error.
+    """
     if not file.content_type.startswith('audio/'):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid audio file format.")
     audio_bytes = await file.read()
@@ -39,9 +41,11 @@ async def transcribe_prescription(file: UploadFile = File(...), current_user: Us
 def create_medicine(
     medicine: MedicineCreate, 
     db: Session = Depends(get_db), 
-    session_token: Annotated[Optional[str], Cookie()] = None
+    session_token: Annotated[Optional[str], Cookie(description="Session token for authentication")] = None
 ):
-    """Create a new medicine record."""
+    """
+    Create a new medicine record for a user. Requires authentication. Clears cache for the user.
+    """
     
     RequireAdminOrUser(user_id=medicine.user_id,session_token=session_token, db=db)
     
@@ -53,8 +57,13 @@ def create_medicine(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 @router.get("/user/{user_id}", response_model=List[MedicineResponse], responses={200: {"description": "List of medicines for the user."}, 404: {"description": "User not found."}})
-def get_medicines_by_user(user_id: int, db: Session = Depends(get_db)):
-    """Get all medicines for a user."""
+def get_medicines_by_user(
+    user_id: int = Path(..., description="ID of the user to get medicines for"),
+    db: Session = Depends(get_db)
+):
+    """
+    List all medicines for a user. Results are cached for 5 minutes.
+    """
     cache_key = f"medicines_user_{user_id}"
     cached_medicines = Cache.get(cache_key)
     if cached_medicines:
@@ -65,16 +74,28 @@ def get_medicines_by_user(user_id: int, db: Session = Depends(get_db)):
     return medicines_data
 
 @router.get("/{medicine_id}", response_model=MedicineResponse, responses={200: {"description": "Medicine found."}, 404: {"description": "Medicine not found."}})
-def get_medicine_by_id(medicine_id: int, db: Session = Depends(get_db)):
-    """Get a medicine by its ID."""
+def get_medicine_by_id(
+    medicine_id: int = Path(..., description="ID of the medicine to retrieve"),
+    db: Session = Depends(get_db)
+):
+    """
+    Get a medicine by its ID.
+    """
     medicine = MedicineService.get_medicine(db, medicine_id)
     if not medicine:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Medicine not found")
     return medicine
 
 @router.put("/{medicine_id}", response_model=MedicineResponse, responses={200: {"description": "Medicine updated successfully."}, 404: {"description": "Medicine not found."}})
-def update_medicine(medicine_id: int, medicine_update: MedicineUpdate, db: Session = Depends(get_db), isAuthenticated: bool = Depends(RequireAdminOrOwnership)):
-    """Update an existing medicine record."""
+def update_medicine(
+    medicine_id: int = Path(..., description="ID of the medicine to update"),
+    medicine_update: MedicineUpdate = None,
+    db: Session = Depends(get_db),
+    isAuthenticated: bool = Depends(RequireAdminOrOwnership)
+):
+    """
+    Update an existing medicine record. Requires admin or owner. Clears the user's cache.
+    """
     medicine = MedicineService.update_medicine(db, medicine_id, medicine_update)
     if not medicine:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Medicine not found")
@@ -82,8 +103,14 @@ def update_medicine(medicine_id: int, medicine_update: MedicineUpdate, db: Sessi
     return medicine
 
 @router.delete("/{medicine_id}", responses={200: {"description": "Medicine deleted successfully."}, 404: {"description": "Medicine not found."}})
-def delete_medicine(medicine_id: int, db: Session = Depends(get_db), isAuthenticated: bool = Depends(RequireAdminOrOwnership)):
-    """Delete a medicine by its ID."""
+def delete_medicine(
+    medicine_id: int = Path(..., description="ID of the medicine to delete"),
+    db: Session = Depends(get_db),
+    isAuthenticated: bool = Depends(RequireAdminOrOwnership)
+):
+    """
+    Delete a medicine record by ID. Requires admin or owner. Clears the user's cache.
+    """
     medicine = MedicineService.get_medicine(db, medicine_id)
     if not medicine:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Medicine not found")
