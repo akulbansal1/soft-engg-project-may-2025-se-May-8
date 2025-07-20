@@ -1,7 +1,8 @@
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
+import yaml
 
 from src.db.database import engine, Base
 from src.api import api_router
@@ -60,6 +61,15 @@ def health_check():
     Health check endpoint for monitoring tools. Returns a simple healthy status and service name.
     """
     return {"status": "healthy", "service": "backend-api"}
+
+@app.get(settings.API_V1_STR + "/openapi.yaml", response_class=Response, include_in_schema=False)
+def get_openapi_yaml():
+    """
+    Get OpenAPI specification in YAML format. This endpoint provides the same OpenAPI spec as /openapi.json but in YAML format.
+    """
+    openapi_spec = app.openapi()
+    openapi_yaml = yaml.dump(openapi_spec, default_flow_style=False, sort_keys=False)
+    return Response(content=openapi_yaml, media_type="application/x-yaml")
 
 @app.exception_handler(404)
 async def not_found_handler(request, exc):
