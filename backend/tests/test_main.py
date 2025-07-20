@@ -49,7 +49,7 @@ class TestServerHealth:
         data = response.json()
         assert "openapi" in data
         assert "info" in data
-        assert data["info"]["title"] == "SE Project API"
+        assert data["info"]["title"] == "SE Project API (Team 8, May 2025)"
 
     def test_docs_interface(self, client):
         """Test Swagger docs interface"""

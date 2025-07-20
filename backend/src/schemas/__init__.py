@@ -1,5 +1,17 @@
 from .user import UserBase, UserCreate, UserUpdate, UserResponse, UserLogin, UserSession
+from .passkey import (
+    PasskeyCredentialBase, PasskeyCredentialCreate, PasskeyCredentialUpdate, 
+    PasskeyCredentialResponse, WebAuthnUser, WebAuthnRelyingParty, 
+    PublicKeyCredentialParameters, SerializedWebAuthnChallenge, SignupChallenge,
+    SignupResponse, LoginChallenge, LoginResponse, PasskeyRegistrationRequest,
+    PasskeyLoginRequest, PasskeyVerificationResult
+)
 
 __all__ = [
-    "UserBase", "UserCreate", "UserUpdate", "UserResponse", "UserLogin", "UserSession"
+    "UserBase", "UserCreate", "UserUpdate", "UserResponse", "UserLogin", "UserSession",
+    "PasskeyCredentialBase", "PasskeyCredentialCreate", "PasskeyCredentialUpdate", 
+    "PasskeyCredentialResponse", "WebAuthnUser", "WebAuthnRelyingParty", 
+    "PublicKeyCredentialParameters", "SerializedWebAuthnChallenge", "SignupChallenge",
+    "SignupResponse", "LoginChallenge", "LoginResponse", "PasskeyRegistrationRequest",
+    "PasskeyLoginRequest", "PasskeyVerificationResult"
 ]

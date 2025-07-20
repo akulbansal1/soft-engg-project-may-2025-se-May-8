@@ -11,6 +11,7 @@ from src.schemas.passkey import (
     PasskeyCredentialResponse, 
     SignupResponse, 
     LoginResponse,
+    SerializedWebAuthnChallenge,
     PasskeyRegistrationRequest,
     PasskeyLoginRequest,
     PasskeyVerificationResult
@@ -161,7 +162,7 @@ def get_sms_verification_status(
 
 @router.post(
     "/passkey/register/challenge", 
-    response_model=Dict[str, Any],
+    response_model=SerializedWebAuthnChallenge,
     status_code=status.HTTP_200_OK,
     summary="Create passkey registration challenge",
     description="Generate a WebAuthn registration challenge for passkey setup. This is step 1 of passkey registration.",
@@ -211,7 +212,7 @@ def create_passkey_registration_challenge(
 )
 def verify_passkey_registration(
     request: PasskeyRegistrationRequest,
-    response_data: Dict[str, Any],
+    response_data: PasskeyVerificationResult,
     response: Response,
     db: Session = Depends(get_db)
 ):
@@ -254,7 +255,7 @@ def verify_passkey_registration(
 
 @router.post(
     "/passkey/login/challenge", 
-    response_model=Dict[str, Any],
+    response_model=SerializedWebAuthnChallenge,
     status_code=status.HTTP_200_OK,
     summary="Create passkey login challenge",
     description="Generate a WebAuthn authentication challenge for passkey login. This is step 1 of passkey authentication.",
@@ -300,7 +301,7 @@ def create_passkey_login_challenge(
 )
 def verify_passkey_login(
     request: PasskeyLoginRequest,
-    response_data: Dict[str, Any],
+    response_data: PasskeyVerificationResult,
     response: Response,
     db: Session = Depends(get_db)
 ):
@@ -427,5 +428,3 @@ def get_current_user_info(current_user = Depends(RequireAuth)):
     """
     return UserResponse.model_validate(current_user)
 
-
-## ADMIN ENDPOINT
