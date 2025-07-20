@@ -180,7 +180,6 @@ def create_passkey_registration_challenge(
     Create WebAuthn registration challenge for passkey setup. Returns challenge data for frontend.
     """
     try:
-        # Create registration challenge
         challenge_data = PasskeyService.create_signup_challenge(
             db, 
             request.user_phone, 
@@ -224,21 +223,18 @@ def verify_passkey_registration(
             db, request.user_phone, response_data
         )
         
-         # If registration successful, issue session
         if result and result.user_id:
             session_data = UserService.issue_session(result.user_id)
 
-            # Set session token as HTTP-only cookie
             response.set_cookie(
                 key="session_token",
                 value=session_data["session_token"],
-                max_age=settings.COOKIE_EXPIRY.total_seconds(),  # 24 hours in seconds
-                httponly=True,  # Prevents JavaScript access (XSS protection)
-                secure=settings.COOKIE_SECURE,   # Set to True in production with HTTPS
-                samesite="lax"  # CSRF protection
+                max_age=settings.COOKIE_EXPIRY.total_seconds(),
+                httponly=True,
+                secure=settings.COOKIE_SECURE,
+                samesite="lax"
             )
 
-            # Add session info to result without exposing token in response body
             result_dict = result.model_dump()
             result_dict["session_expires_at"] = session_data["expires_at"]
 
@@ -313,21 +309,18 @@ def verify_passkey_login(
             db, request.credential_id, response_data
         )
         
-        # If login successful, issue session
         if result and result.user_id:
             session_data = UserService.issue_session(result.user_id)
 
-            # Set session token as HTTP-only cookie
             response.set_cookie(
                 key="session_token",
                 value=session_data["session_token"],
                 max_age=settings.COOKIE_EXPIRY.total_seconds(),
-                httponly=True,  # Prevents JavaScript access (XSS protection)
-                secure=settings.COOKIE_SECURE,   # Set to True in production with HTTPS
-                samesite="lax"  # CSRF protection
+                httponly=True,
+                secure=settings.COOKIE_SECURE,
+                samesite="lax"
             )
 
-            # Add session info to result without exposing token in response body
             result_dict = result.model_dump()
             result_dict["session_expires_at"] = session_data["expires_at"]
 
@@ -400,12 +393,11 @@ def logout_user(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Failed to logout user"
         )
-    
-    # Clear the session cookie
+
     response.delete_cookie(
         key="session_token",
         httponly=True,
-        secure=False,  # Set to True in production with HTTPS
+        secure=False,
         samesite="lax"
     )
     

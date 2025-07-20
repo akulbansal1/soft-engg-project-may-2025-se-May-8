@@ -37,28 +37,21 @@ class PasskeyService:
         Only extracts required fields: challenge, user, rp, pubKeyCredParams, timeout, attestation
         Handles base64 encoding of binary data
         """
-
-        # Convert to dict first
         if hasattr(challenge_data, 'model_dump'):
             data_dict = challenge_data.model_dump()
         elif hasattr(challenge_data, '__dict__'):
             data_dict = challenge_data.__dict__
         else:
-            # If it's already a dict
             data_dict = challenge_data
 
-        # Only extract the required fields
         required_fields = ['challenge', 'user', 'rp', 'pubKeyCredParams', 'timeout', 'attestation']
         
-        # Recursively convert bytes to base64 strings and handle nested objects
         def convert_bytes(obj):
             if isinstance(obj, bytes):
                 return base64.b64encode(obj).decode('utf-8')
             elif hasattr(obj, 'model_dump'):
-                # Handle pydantic models and similar objects
                 return convert_bytes(obj.model_dump())
             elif hasattr(obj, '__dict__'):
-                # Handle other objects with attributes
                 return convert_bytes(obj.__dict__)
             elif isinstance(obj, dict):
                 return {k: convert_bytes(v) for k, v in obj.items()}
@@ -67,7 +60,6 @@ class PasskeyService:
             else:
                 return obj
         
-        # Extract only the required fields and process them
         result = {}
         for field in required_fields:
             if field in data_dict:
@@ -81,7 +73,6 @@ class PasskeyService:
         Create a WebAuthn registration challenge for a user
         Requires SMS verification before proceeding
         """
-        # Check SMS verification first (if enabled)
         if settings.SMS_VERIFICATION_ENABLED and not sms_service.is_phone_verified(user_phone):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -92,7 +83,6 @@ class PasskeyService:
         user_id = existing_user.id if existing_user else None
          
         if not existing_user:
-            # If user does not exist, create a new user
             user_data = UserCreate(
                 name=user_name,
                 phone=user_phone,
@@ -107,22 +97,19 @@ class PasskeyService:
                 detail="User with this phone number already exists and is active"
             )
         
-        # Generate challenge using the model method
         challenge_data = generate_registration_options(
-            rp_id= settings.FRONTEND_RP_ID,  # Replace with RP ID
-            rp_name=settings.PROJECT_NAME,  # Replace with RP name  
-            user_id=str(user_id).encode('utf-8'),  # Convert user_id to bytes properly
-            user_name=user_phone,  
+            rp_id=settings.FRONTEND_RP_ID,
+            rp_name=settings.PROJECT_NAME,
+            user_id=str(user_id).encode('utf-8'),
+            user_name=user_phone,
             user_display_name=user_name,
             attestation="none",
             authenticator_selection=AuthenticatorSelectionCriteria(
                 user_verification=UserVerificationRequirement.REQUIRED
             ),
-            timeout= settings.CHALLENGE_TIMEOUT,
+            timeout=settings.CHALLENGE_TIMEOUT,
         )
         
-        # Store challenge in session/cache for verification
-        # Convert challenge_data to dict for JSON serialization with proper base64 encoding
         challenge_dict = PasskeyService._serialize_challenge_data(challenge_data)
         Cache.set(f"webauthn_signup_challenge_{user_id}", json.dumps(challenge_dict.model_dump()), expiry=settings.CHALLENGE_CACHE_EXPIRY)
     
@@ -137,7 +124,6 @@ class PasskeyService:
         """
         Verify WebAuthn registration response and create credential
         """
-        # Look for user with user_phone
         existing_user = UserService.get_user_by_phone(db, user_phone)
 
         if not existing_user:
@@ -146,7 +132,6 @@ class PasskeyService:
                 detail="User not found"
             )
         
-        # Retrieve challenge from cache
         challenge_data_json = Cache.get(f"webauthn_signup_challenge_{existing_user.id}")
         if not challenge_data_json:
             raise HTTPException(
@@ -156,16 +141,14 @@ class PasskeyService:
         
         challenge_data = json.loads(challenge_data_json)
 
-        # Verify the registration response
         response = verify_registration_response(
             credential=response_data,
             expected_challenge=challenge_data.get('challenge') if isinstance(challenge_data, dict) else challenge_data,
-            expected_rp_id=settings.FRONTEND_RP_ID,  
+            expected_rp_id=settings.FRONTEND_RP_ID,
             expected_origin=settings.FRONTEND_ORIGIN,
-            require_user_verification=True  
+            require_user_verification=True
         )
         
-        # Check if credential_id already exists
         existing_credential = db.query(PasskeyCredential).filter(
             PasskeyCredential.credential_id == response.credential_id
         ).first()
@@ -176,7 +159,6 @@ class PasskeyService:
                 detail="Credential already exists"
             )
         
-        # Create new credential  
         credential_data = PasskeyCredentialCreate(
             user_id=existing_user.id,
             credential_id=str(response.credential_id),
@@ -186,10 +168,8 @@ class PasskeyService:
         
         credential = PasskeyService.create_credential(db, credential_data)
         
-        # Update user status to active
         UserService.activate_user(db, existing_user.id)
 
-        # Clear the challenge from cache
         Cache.delete(f"webauthn_signup_challenge_{existing_user.id}")
 
         return PasskeyVerificationResult(
@@ -205,7 +185,6 @@ class PasskeyService:
         """
         Create a WebAuthn authentication challenge
         """
-        # If credential_id is provided, verify it exists
         credential = db.query(PasskeyCredential).filter(
             PasskeyCredential.credential_id == credential_id
         ).first()
@@ -214,8 +193,7 @@ class PasskeyService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Credential not found"
             )
-        
-        # Generate challenge using the model method
+ 
         challenge_data = generate_authentication_options(
             rp_id=settings.FRONTEND_RP_ID, 
             user_verification="required",
@@ -226,8 +204,6 @@ class PasskeyService:
             }],
         )
 
-        # Store challenge in session/cache for verification
-        # Convert challenge_data to dict for JSON serialization with proper base64 encoding
         challenge_dict = PasskeyService._serialize_challenge_data(challenge_data)
         Cache.set(f"webauthn_login_challenge_{credential.user_id}", json.dumps(challenge_dict.model_dump()), expiry=settings.CHALLENGE_CACHE_EXPIRY)     
         
@@ -242,7 +218,7 @@ class PasskeyService:
         """
         Verify WebAuthn authentication response
         """
-        # Find the credential
+        
         credential = db.query(PasskeyCredential).filter(
             PasskeyCredential.credential_id == credential_id
         ).first()
@@ -253,7 +229,6 @@ class PasskeyService:
                 detail="Credential not found"
             )
 
-        # Retrieve challenge from cache
         challenge_data_json = Cache.get(f"webauthn_login_challenge_{credential.user_id}")
         if not challenge_data_json:
             raise HTTPException(
@@ -263,9 +238,7 @@ class PasskeyService:
         
         challenge_data = json.loads(challenge_data_json)
 
-        # If verification is successful, update sign count
         try:
-            # Verify the response
             response = verify_authentication_response(
                 credential=response_data,
                 expected_challenge=challenge_data.get('challenge') if isinstance(challenge_data, dict) else challenge_data,
@@ -276,11 +249,9 @@ class PasskeyService:
                 credential_current_sign_count= credential.sign_count
             )
         
-            # Clear the challenge from cache
             Cache.delete(f"webauthn_login_challenge_{credential.user_id}")
 
             ## NOTE: Might have to think about the sign_count logic here
-            # Update sign count in database
             credential.sign_count = response_data.sign_count
             db.commit()
 
@@ -289,7 +260,6 @@ class PasskeyService:
                 credential_id=credential.credential_id,
             )
         except Exception as e:
-            # If verification fails, return an error
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail=f"Authentication failed: {str(e)}"
@@ -305,7 +275,6 @@ class PasskeyService:
         Create a new passkey credential for a user
         """
 
-        # Check is passkey credential already exists
         existing_credential = db.query(PasskeyCredential).filter(
             PasskeyCredential.credential_id == credential_data.credential_id
         ).first()
@@ -315,7 +284,6 @@ class PasskeyService:
                 detail="Credential already exists"
             )
         
-        # Create the credential object
         credential = PasskeyCredential(**credential_data.model_dump())
         
         try:
@@ -388,8 +356,7 @@ class PasskeyService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Credential not found"
             )
-        
-        # Update fields
+      
         for field, value in update_data.dict(exclude_unset=True).items():
             setattr(credential, field, value)
         

@@ -7,16 +7,16 @@ if settings.is_sqlite:
     # SQLite configuration
     engine = create_engine(
         settings.DATABASE_URL,
-        connect_args={"check_same_thread": False},  # Only for SQLite
-        echo=settings.DEBUG  # Log SQL queries in debug mode
+        connect_args={"check_same_thread": False},
+        echo=settings.DEBUG
     )
 else:
     # PostgreSQL configuration
     engine = create_engine(
         settings.DATABASE_URL,
-        pool_pre_ping=True,  # Verify connections before using them
-        pool_recycle=300,    # Recreate connections every 5 minutes
-        echo=settings.DEBUG  # Log SQL queries in debug mode
+        pool_pre_ping=True,
+        pool_recycle=300,
+        echo=settings.DEBUG
     )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

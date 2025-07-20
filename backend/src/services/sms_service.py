@@ -50,34 +50,28 @@ class SMSService:
             HTTPException: If SMS sending fails
         """
         try:
-            # Check if we recently sent a code to prevent spam
             cache_key = self._get_verification_cache_key(phone)
             existing_code_data = Cache.get(cache_key)
             
             if existing_code_data:
                 existing_data = json.loads(existing_code_data)
                 sent_at = datetime.fromisoformat(existing_data['sent_at'])
-                # Prevent sending new code within 1 minute
                 if datetime.now() - sent_at < timedelta(minutes=1):
                     raise HTTPException(
                         status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                         detail="Please wait before requesting another verification code"
                     )
             
-            # Generate verification code
             verification_code = self._generate_verification_code()
             
-            # Create SMS message
             message_body = f"Your verification code is: {verification_code}. This code will expire in 10 minutes."
             
-            # Send WhatsApp message via Twilio
             message = self.client.messages.create(
                 body=message_body,
                 from_=f"whatsapp:{self.from_phone}",
                 to=f"whatsapp:{phone}"
             )
             
-            # Store verification code in cache
             verification_data = {
                 'code': verification_code,
                 'phone': phone,
@@ -137,18 +131,14 @@ class SMSService:
             
             verification_data = json.loads(verification_data_json)
             
-            # Check attempt limit (max 3 attempts)
             if verification_data.get('attempts', 0) >= 3:
-                # Delete the code to prevent further attempts
                 Cache.delete(cache_key)
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Too many failed attempts. Please request a new verification code."
                 )
             
-            # Verify the code
             if verification_data['code'] != code:
-                # Increment attempt counter
                 verification_data['attempts'] = verification_data.get('attempts', 0) + 1
                 Cache.set(
                     cache_key,
@@ -162,7 +152,6 @@ class SMSService:
                     detail=f"Invalid verification code. {remaining_attempts} attempts remaining."
                 )
             
-            # Code is correct - mark phone as verified
             verified_status = {
                 'phone': phone,
                 'verified_at': datetime.now().isoformat(),
@@ -176,7 +165,6 @@ class SMSService:
                 expiry=settings.SMS_VERIFICATION_CACHE_EXPIRY
             )
             
-            # Clean up the verification code
             Cache.delete(cache_key)
             
             return {
@@ -213,16 +201,13 @@ class SMSService:
             verified_data = json.loads(verified_data_json)
             expires_at = datetime.fromisoformat(verified_data['expires_at'])
             
-            # Check if verification has expired
             if datetime.now() > expires_at:
-                # Clean up expired verification
                 Cache.delete(verified_cache_key)
                 return False
             
             return True
             
         except Exception:
-            # If there's any error, consider as not verified
             return False
     
     def get_verification_status(self, phone: str) -> Dict[str, Any]:
@@ -249,9 +234,7 @@ class SMSService:
             verified_data = json.loads(verified_data_json)
             expires_at = datetime.fromisoformat(verified_data['expires_at'])
             
-            # Check if verification has expired
             if datetime.now() > expires_at:
-                # Clean up expired verification
                 Cache.delete(verified_cache_key)
                 return {
                     'verified': False,
@@ -272,19 +255,6 @@ class SMSService:
                 'expires_at': None
             }
     
-    def cleanup_expired_codes(self) -> int:
-        """
-        Cleanup expired verification codes and statuses
-        This could be called by a background task
-        
-        Returns:
-            Number of cleaned up entries
-        """
-        # This is a placeholder for cleanup logic
-        # In a real implementation, you might want to scan cache keys
-        # and clean up expired entries
-        return 0
-    
     def send_emergency_message(self, phone: str, user_name: str = "Someone") -> Dict[str, Any]:
         """
         Send emergency SOS message to a phone number
@@ -300,10 +270,8 @@ class SMSService:
             HTTPException: If SMS sending fails
         """
         try:
-            # Create emergency message
             message_body = f"🚨 EMERGENCY ALERT 🚨\n\n{user_name} has triggered an emergency SOS signal and may need immediate assistance. Please check on them or contact emergency services if necessary.\n\nTime: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
             
-            # Send WhatsApp message via Twilio
             message = self.client.messages.create(
                 body=message_body,
                 from_=f"whatsapp:{self.from_phone}",
