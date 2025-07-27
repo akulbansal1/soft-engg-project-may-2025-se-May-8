@@ -459,7 +459,7 @@ def admin_login(
             max_age=settings.COOKIE_EXPIRY.total_seconds(),
             httponly=True,
             secure=settings.COOKIE_SECURE,
-            samesite="lax"
+            samesite="None" # Use None for cross-site requests
         )
         
         return { "message": "Admin login successful" }
@@ -494,7 +494,7 @@ def admin_logout(
             key="session_token",
             httponly=True,
             secure=settings.COOKIE_SECURE,
-            samesite="lax"
+            samesite="None"
         )
         
         return {"message": "Admin logout successful"}
