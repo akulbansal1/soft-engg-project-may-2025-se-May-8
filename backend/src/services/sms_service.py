@@ -255,6 +255,47 @@ class SMSService:
                 'expires_at': None
             }
     
+    def send_reminder_sms(self, phone: str, message: str) -> Dict[str, Any]:
+        """
+        Send reminder SMS to a phone number
+        
+        Args:
+            phone: Phone number to send reminder to
+            message: Reminder message content
+            
+        Returns:
+            Dict containing success status and message
+            
+        Raises:
+            HTTPException: If SMS sending fails
+        """
+        try:
+            # Add a reminder prefix to make it clear this is a scheduled reminder
+            formatted_message = f"⏰ Reminder: {message}"
+            
+            sms_message = self.client.messages.create(
+                body=formatted_message,
+                from_=f"whatsapp:{self.from_phone}",
+                to=f"whatsapp:{phone}"
+            )
+            
+            return {
+                'success': True,
+                'message': f'Reminder sent to {phone}',
+                'message_sid': sms_message.sid
+            }
+            
+        except TwilioException as e:
+            return {
+                'success': False,
+                'message': f'Failed to send reminder SMS to {phone}: {str(e)}'
+            }
+        except Exception as e:
+            return {
+                'success': False,
+                'message': f'Unexpected error sending reminder SMS to {phone}: {str(e)}'
+            }
+    
     def send_emergency_message(self, phone: str, user_name: str = "Someone", location: str = None) -> Dict[str, Any]:
         """
         Send emergency SOS message to a phone number
