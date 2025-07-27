@@ -454,7 +454,7 @@ def admin_login(
             )
 
         response.set_cookie(
-            key="admin_session_token",
+            key="session_token",
             value= token,
             max_age=settings.COOKIE_EXPIRY.total_seconds(),
             httponly=True,
@@ -491,7 +491,7 @@ def admin_logout(
     """
     try:
         response.delete_cookie(
-            key="admin_session_token",
+            key="session_token",
             httponly=True,
             secure=settings.COOKIE_SECURE,
             samesite="lax"
