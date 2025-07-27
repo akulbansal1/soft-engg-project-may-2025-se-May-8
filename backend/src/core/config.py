@@ -52,7 +52,7 @@ class Settings:
     SESSION_TOKEN_EXPIRY = timedelta(hours=24*7) # 7 days
 
     COOKIE_EXPIRY = timedelta(days=7)  # 7 days
-    COOKIE_SECURE = False # Set to True in production with HTTPS
+    COOKIE_SECURE = True
     
     # Twilio SMS Configuration
     TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")
