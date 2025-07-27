@@ -255,13 +255,14 @@ class SMSService:
                 'expires_at': None
             }
     
-    def send_emergency_message(self, phone: str, user_name: str = "Someone") -> Dict[str, Any]:
+    def send_emergency_message(self, phone: str, user_name: str = "Someone", location: str = None) -> Dict[str, Any]:
         """
         Send emergency SOS message to a phone number
         
         Args:
             phone: Phone number to send emergency message to
             user_name: Name of the person in emergency (optional)
+            location: Location information to include in emergency message (optional)
             
         Returns:
             Dict containing success status and message
@@ -271,6 +272,9 @@ class SMSService:
         """
         try:
             message_body = f"🚨 EMERGENCY ALERT 🚨\n\n{user_name} has triggered an emergency SOS signal and may need immediate assistance. Please check on them or contact emergency services if necessary.\n\nTime: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+            
+            if location:
+                message_body += f"\nLocation: {location}"
             
             message = self.client.messages.create(
                 body=message_body,

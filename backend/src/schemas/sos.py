@@ -1,6 +1,17 @@
 from pydantic import BaseModel, Field
 from typing import List, Optional
 
+class SOSRequest(BaseModel):
+    """Schema for SOS trigger request."""
+    location: Optional[str] = Field(None, example="123 Main St, New York, NY", description="Optional location information to include in emergency message")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "location": "Home - 123 Main Street, Apartment 4B"
+            }
+        }
+
 class SOSResponse(BaseModel):
     """Schema for SOS trigger response."""
     success: bool = Field(..., example=True, description="Whether the SOS messages were sent successfully")

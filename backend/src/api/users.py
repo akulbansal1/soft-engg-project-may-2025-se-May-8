@@ -9,7 +9,7 @@ from src.services.user_service import UserService
 from src.services.emergency_contact_service import EmergencyContactService
 from src.services.sms_service import get_sms_service
 from src.schemas.user import  UserResponse, UserSession
-from src.schemas.sos import SOSResponse
+from src.schemas.sos import SOSResponse, SOSRequest
 
 from src.core.auth_middleware import RequireAuth, RequireOwnership, RequireAdminOrUser
 
@@ -63,7 +63,12 @@ def get_user(
         **AUTH_ERROR_RESPONSES
     }
 )
-def trigger_sos(user_id: int, db: Session = Depends(get_db), current_user = Depends(RequireOwnership)):
+def trigger_sos(
+    user_id: int, 
+    request: SOSRequest,
+    db: Session = Depends(get_db), 
+    current_user = Depends(RequireOwnership)
+):
     """
     Trigger an SOS alert for a user. Sends emergency SMS messages to all of the user's registered emergency contacts. Only the user can trigger this. Returns the number of contacts notified and any failures.
     
@@ -90,12 +95,15 @@ def trigger_sos(user_id: int, db: Session = Depends(get_db), current_user = Depe
     
     for contact in emergency_contacts:
         try:
-            result = sms_service.send_emergency_message(contact.phone, user_name)
+            result = sms_service.send_emergency_message(
+                contact.phone, 
+                user_name, 
+                location=request.location
+            )
             if result['success']:
                 contacts_notified += 1
         except Exception as e:
             failed_notifications.append(contact.phone)
-            # Log the error but continue with other contacts
             print(f"Failed to send SOS to {contact.phone}: {str(e)}")
     
     # Determine overall success

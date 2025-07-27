@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Response, Cookie, Path
+from fastapi import APIRouter, Depends, HTTPException, status, Response, Cookie, Path, Header
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from src.api.constants import AUTH_ERROR_RESPONSES
 from sqlalchemy.orm import Session
 from typing import List, Dict, Any, Optional
@@ -420,3 +421,87 @@ def get_current_user_info(current_user = Depends(RequireAuth)):
     """
     return UserResponse.model_validate(current_user)
 
+admin_security = HTTPBearer(
+    scheme_name="Admin Bearer Token",
+    description="Admin bearer token for authentication"
+)
+@router.post(
+    "/admin/login",
+    status_code=status.HTTP_200_OK,
+    summary="Admin login",
+    description="Login as admin using a bearer token from Authorization header. Sets session cookie on success.",
+    responses={
+        200: {"description": "Admin login successful, session created"},
+        401: {"description": "Unauthorized - Invalid or missing token"},
+        500: {"description": "Internal Server Error"}
+    }
+)
+def admin_login(
+    response: Response,
+    credentials: HTTPAuthorizationCredentials = Depends(admin_security),
+    db: Session = Depends(get_db)
+):
+    """
+    Admin login endpoint to accept a bearer token from the Authorization header for admin access and set session cookie in response.
+    """
+    try:
+        token = credentials.credentials
+     
+        if not token == settings.ADMIN_SESSION_TOKEN:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid admin token"
+            )
+
+        response.set_cookie(
+            key="admin_session_token",
+            value= token,
+            max_age=settings.COOKIE_EXPIRY.total_seconds(),
+            httponly=True,
+            secure=settings.COOKIE_SECURE,
+            samesite="lax"
+        )
+        
+        return { "message": "Admin login successful" }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to login as admin: {str(e)}"
+        )
+
+@router.post(
+    "/admin/logout",
+    status_code=status.HTTP_200_OK,
+    summary="Admin logout",
+    description="Logout admin by clearing the admin session cookie.",
+    responses={
+        200: {"description": "Admin logout successful"},
+        500: {"description": "Internal Server Error"}
+    }
+)
+def admin_logout(
+    response: Response,
+    db: Session = Depends(get_db)
+):
+    """
+    Admin logout endpoint to clear the admin session cookie.
+    """
+    try:
+        response.delete_cookie(
+            key="admin_session_token",
+            httponly=True,
+            secure=settings.COOKIE_SECURE,
+            samesite="lax"
+        )
+        
+        return {"message": "Admin logout successful"}
+    
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to logout admin: {str(e)}"
+        )
+    
