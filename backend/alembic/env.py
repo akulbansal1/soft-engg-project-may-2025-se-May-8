@@ -8,8 +8,14 @@ from alembic import context
 from src.core.config import settings
 from src.db.database import Base
 
-from src.models.user import User
+from src.models.appointment import Appointment
+from src.models.doctor import Doctor
+from src.models.document import Document
+from src.models.emergency_contact import EmergencyContact
+from src.models.medicine import Medicine
 from src.models.passkey import PasskeyCredential
+from src.models.user import User
+
 
 config = context.config
 
