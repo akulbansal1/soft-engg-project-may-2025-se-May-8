@@ -1,6 +1,3 @@
-"""
-Emergency Contact API tests
-"""
 import pytest
 from unittest.mock import patch, MagicMock
 from src.models.user import User
@@ -8,115 +5,191 @@ from src.schemas.user import UserCreate
 from src.services.user_service import UserService
 from src.core.config import settings
 
-## TODO: Add more tests for the Emergency Contact API
-## TODO: Add unit tests for the Emergency Contact service
 class TestEmergencyContacts:
-    """Test emergency contact CRUD operations"""
 
     def create_admin_session(self, client):
-        """Helper to create an admin session"""
         client.cookies.set("session_token", settings.ADMIN_SESSION_TOKEN)
 
     def create_authenticated_session(self, client, test_db):
-        """Helper to create a regular authenticated session"""
         user_data = UserCreate(name="Test User", phone="1234567890", is_active=True)
         user = UserService.register_user(test_db, user_data)
         
         session_data = UserService.issue_session(user.id)
         session_token = session_data["session_token"]
         
-        # Set session cookie in the client
         client.cookies.set("session_token", session_token)
         
         return user, session_token
     
     def create_user(self, test_db):
-        """Helper to create a user for testing"""
         user = User(name="Test User", phone="1234567890")
         test_db.add(user)
         test_db.commit()
         test_db.refresh(user)
         return user.id
 
-    def test_emergency_contact_crud(self, client, test_db):
-        """Test emergency contact CRUD operations"""
-        # Set up authenticated session for document creation (RequireAuth)
+    def test_create_emergency_contact_valid_data(self, client, test_db):
         user, session_token = self.create_authenticated_session(client, test_db)
         user_id = user.id
     
-        # Create contact
         contact_data = {
             "name": "Jane Doe",
             "relation": "Sister",
-            "phone": "9876543210",
+            "phone": "+919876543210",
+            "user_id": user_id
+        }
+        
+        response = client.post("/api/v1/emergency-contacts/", json=contact_data)
+        assert response.status_code in [200, 201]
+        contact = response.json()
+        assert contact["name"] == contact_data["name"]
+        assert contact["relation"] == contact_data["relation"]
+        assert contact["phone"] == contact_data["phone"]
+        assert contact["user_id"] == user_id
+        assert "id" in contact
+
+    def test_create_emergency_contact_missing_required_fields(self, client, test_db):
+        user, session_token = self.create_authenticated_session(client, test_db)
+        
+        incomplete_data = {
+            "name": "Jane Doe",
+            "relation": "Sister",
+            "user_id": user.id
+        }
+        
+        response = client.post("/api/v1/emergency-contacts/", json=incomplete_data)
+        assert response.status_code == 422
+
+    def test_create_emergency_contact_unauthorized(self, client, test_db):
+        user_id = self.create_user(test_db)
+        
+        contact_data = {
+            "name": "Jane Doe",
+            "relation": "Sister", 
+            "phone": "+919876543210",
+            "user_id": user_id
+        }
+        
+        response = client.post("/api/v1/emergency-contacts/", json=contact_data)
+        assert response.status_code == 401
+
+    def test_create_emergency_contact_max_limit_exceeded(self, client, test_db):
+        user, session_token = self.create_authenticated_session(client, test_db)
+        user_id = user.id
+        
+        for i in range(5):
+            contact_data = {
+                "name": f"Contact {i+1}",
+                "relation": "Family",
+                "phone": f"+91987654321{i}",
+                "user_id": user_id
+            }
+            response = client.post("/api/v1/emergency-contacts/", json=contact_data)
+            assert response.status_code in [200, 201]
+        
+        contact_data = {
+            "name": "Contact 6",
+            "relation": "Friend",
+            "phone": "+919876543215",
             "user_id": user_id
         }
         response = client.post("/api/v1/emergency-contacts/", json=contact_data)
-        assert response.status_code == 200 or response.status_code == 201
-        contact = response.json()
-        assert contact["name"] == contact_data["name"]
-        assert contact["user_id"] == user_id
-        contact_id = contact["id"]
+        assert response.status_code == 400
+        assert "Maximum of 5 emergency contacts allowed" in response.json()["detail"]
 
-        # Get all contacts for user
+    def test_get_emergency_contacts_by_user(self, client, test_db):
+        user, session_token = self.create_authenticated_session(client, test_db)
+        user_id = user.id
+        
+        contact_data = {
+            "name": "Jane Doe",
+            "relation": "Sister",
+            "phone": "+919876543210",
+            "user_id": user_id
+        }
+        client.post("/api/v1/emergency-contacts/", json=contact_data)
+        
         response = client.get(f"/api/v1/emergency-contacts/user/{user_id}")
         assert response.status_code == 200
         contacts = response.json()
+        assert isinstance(contacts, list)
         assert len(contacts) == 1
-        assert contacts[0]["name"] == contact_data["name"]
+        assert contacts[0]["name"] == "Jane Doe"
 
-        # Update contact
-        update_data = {"name": "Jane Smith"}
+    def test_update_emergency_contact_valid_data(self, client, test_db):
+        user, session_token = self.create_authenticated_session(client, test_db)
+        user_id = user.id
+        
+        contact_data = {
+            "name": "Jane Doe",
+            "relation": "Sister",
+            "phone": "+919876543210",
+            "user_id": user_id
+        }
+        
+        create_response = client.post("/api/v1/emergency-contacts/", json=contact_data)
+        contact_id = create_response.json()["id"]
+        
+        update_data = {"name": "Jane Smith", "relation": "Cousin"}
         response = client.put(f"/api/v1/emergency-contacts/{contact_id}", json=update_data)
         assert response.status_code == 200
         updated = response.json()
         assert updated["name"] == "Jane Smith"
+        assert updated["relation"] == "Cousin"
+        assert updated["phone"] == "+919876543210"
 
-        # Delete contact
-        response = client.delete(f"/api/v1/emergency-contacts/{contact_id}")
-        assert response.status_code == 200
-        
-        # Confirm deletion
-        response = client.get(f"/api/v1/emergency-contacts/user/{user_id}")
-        assert response.status_code == 200
-        assert response.json() == []
-
-    @patch('src.services.sms_service.SMSService.send_emergency_message')
-    def test_sos_trigger(self, mock_send_emergency, client, test_db):
-        """Test SOS trigger endpoint"""
-        # Set up authenticated session
+    def test_delete_emergency_contact_and_verify_gone(self, client, test_db):
         user, session_token = self.create_authenticated_session(client, test_db)
         user_id = user.id
         
-        # Create emergency contacts
+        contact_data = {
+            "name": "Jane Doe",
+            "relation": "Sister",
+            "phone": "+919876543210",
+            "user_id": user_id
+        }
+        
+        create_response = client.post("/api/v1/emergency-contacts/", json=contact_data)
+        contact_id = create_response.json()["id"]
+        
+        delete_response = client.delete(f"/api/v1/emergency-contacts/{contact_id}")
+        assert delete_response.status_code == 200
+        assert "message" in delete_response.json()
+        
+        verify_response = client.get(f"/api/v1/emergency-contacts/user/{user_id}")
+        assert verify_response.status_code == 200
+        assert len(verify_response.json()) == 0
+
+    @patch('src.services.sms_service.SMSService.send_emergency_message')
+    def test_sos_trigger_successful(self, mock_send_emergency, client, test_db):
+        user, session_token = self.create_authenticated_session(client, test_db)
+        user_id = user.id
+        
         contact1_data = {
             "name": "Emergency Contact 1",
             "relation": "Family",
-            "phone": "+1234567890",
+            "phone": "+919876543210",
             "user_id": user_id
         }
         contact2_data = {
             "name": "Emergency Contact 2", 
             "relation": "Friend",
-            "phone": "+0987654321",
+            "phone": "+918765432109",
             "user_id": user_id
         }
         
-        # Create contacts
         client.post("/api/v1/emergency-contacts/", json=contact1_data)
         client.post("/api/v1/emergency-contacts/", json=contact2_data)
         
-        # Mock the SMS service to return success
         mock_send_emergency.return_value = {
             'success': True,
-            'message': 'Emergency alert sent via WhatsApp to +1234567890',
+            'message': 'Emergency alert sent via WhatsApp',
             'message_sid': 'test_sid'
         }
         
-        # Trigger SOS
-        response = client.post(f"/api/v1/users/{user_id}/sos/trigger")
+        sos_data = {"location": "Home", "message": "Help needed!"}
+        response = client.post(f"/api/v1/users/{user_id}/sos/trigger", json=sos_data)
         
-        # Verify response
         assert response.status_code == 200
         sos_response = response.json()
         assert sos_response["success"] is True
@@ -124,19 +197,40 @@ class TestEmergencyContacts:
         assert len(sos_response["failed_notifications"]) == 0
         assert "Emergency SOS triggered!" in sos_response["message"]
         
-        # Verify SMS service was called twice (once for each contact)
         assert mock_send_emergency.call_count == 2
 
-    def test_sos_trigger_no_contacts(self, client, test_db):
-        """Test SOS trigger with no emergency contacts"""
-        # Set up authenticated session
+    def test_sos_trigger_no_emergency_contacts(self, client, test_db):
         user, session_token = self.create_authenticated_session(client, test_db)
         user_id = user.id
         
-        # Trigger SOS without any emergency contacts
-        response = client.post(f"/api/v1/users/{user_id}/sos/trigger")
+        sos_data = {"location": "Home", "message": "Help needed!"}
+        response = client.post(f"/api/v1/users/{user_id}/sos/trigger", json=sos_data)
         
-        # Should return 400 error
         assert response.status_code == 400
         error_response = response.json()
         assert "No emergency contacts found" in error_response["detail"]
+
+    @patch('src.services.sms_service.SMSService.send_emergency_message')
+    def test_sos_trigger_sms_service_fails(self, mock_send_emergency, client, test_db):
+        user, session_token = self.create_authenticated_session(client, test_db)
+        user_id = user.id
+        
+        contact_data = {
+            "name": "Emergency Contact",
+            "relation": "Family",
+            "phone": "+919876543210",
+            "user_id": user_id
+        }
+        client.post("/api/v1/emergency-contacts/", json=contact_data)
+        
+        mock_send_emergency.side_effect = Exception("SMS service unavailable")
+        
+        sos_data = {"location": "Home", "message": "Help needed!"}
+        response = client.post(f"/api/v1/users/{user_id}/sos/trigger", json=sos_data)
+        
+        assert response.status_code == 200
+        sos_response = response.json()
+        assert sos_response["success"] is False
+        assert sos_response["contacts_notified"] == 0
+        assert len(sos_response["failed_notifications"]) == 1
+        assert "Failed to send SOS messages" in sos_response["message"]
