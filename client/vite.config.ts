@@ -32,4 +32,14 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  server: {
+    proxy: {
+      '/api': {
+        target: 'https://backend-server-production-5c03.up.railway.app',
+        changeOrigin: true,
+        secure: true,
+        rewrite: path => path.replace(/^\/api/, '/api'), // Keeps /api prefix
+      },
+    },
+  },
 });
