@@ -3,8 +3,8 @@ from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException, status
 from typing import Optional, List, Dict, Any
 from datetime import date
-from webauthn import generate_registration_options, verify_registration_response, generate_authentication_options, verify_authentication_response
-from webauthn.helpers.structs import AuthenticatorSelectionCriteria, UserVerificationRequirement
+from webauthn import generate_registration_options, verify_registration_response, generate_authentication_options, verify_authentication_response, base64url_to_bytes
+from webauthn.helpers.structs import AuthenticatorSelectionCriteria, UserVerificationRequirement, RegistrationCredential, AuthenticatorAttestationResponse, AuthenticationCredential, AuthenticatorAssertionResponse
 import json
 import base64
 
@@ -16,9 +16,7 @@ from src.models.user import User
 from src.schemas.passkey import (
     PasskeyCredentialCreate,
     PasskeyCredentialUpdate,
-    SignupChallenge,
     SignupResponse,
-    LoginChallenge,
     LoginResponse,
     PasskeyVerificationResult,
     SerializedWebAuthnChallenge
@@ -34,7 +32,9 @@ class PasskeyService:
     def _serialize_challenge_data(challenge_data) -> SerializedWebAuthnChallenge:
         """
         Convert WebAuthn challenge data to JSON-serializable format
-        Only extracts required fields: challenge, user, rp, pubKeyCredParams, timeout, attestation
+        Extracts relevant fields for both registration and authentication challenges
+        For registration: challenge, user, rp, pubKeyCredParams, timeout, attestation
+        For authentication: challenge, timeout, rpId (as rp), allowCredentials
         Handles base64 encoding of binary data
         """
         if hasattr(challenge_data, 'model_dump'):
@@ -44,7 +44,11 @@ class PasskeyService:
         else:
             data_dict = challenge_data
 
-        required_fields = ['challenge', 'user', 'rp', 'pubKeyCredParams', 'timeout', 'attestation']
+        # Fields that may be present in either registration or authentication challenges
+        possible_fields = [
+            'challenge', 'user', 'rp', 'pubKeyCredParams', 'timeout', 'attestation',
+            'allowCredentials', 'rpId', 'userVerification'
+        ]
         
         def convert_bytes(obj):
             if isinstance(obj, bytes):
@@ -61,9 +65,12 @@ class PasskeyService:
                 return obj
         
         result = {}
-        for field in required_fields:
+        for field in possible_fields:
             if field in data_dict:
                 result[field] = convert_bytes(data_dict[field])
+                
+        if 'rpId' in result and 'rp' not in result:
+            result['rp'] = {'id': result.pop('rpId')}
 
         return SerializedWebAuthnChallenge(**result)
 
@@ -140,17 +147,29 @@ class PasskeyService:
             )
         
         challenge_data = json.loads(challenge_data_json)
+        raw_credential_id = base64.urlsafe_b64decode(response_data.credential_id + '=' * (-len(response_data.credential_id) % 4))
+        expected_challenge =  challenge_data.get('challenge') if isinstance(challenge_data, dict) else challenge_data
 
         response = verify_registration_response(
-            credential=response_data,
-            expected_challenge=challenge_data.get('challenge') if isinstance(challenge_data, dict) else challenge_data,
+            credential=RegistrationCredential(
+                id=response_data.credential_id,
+                raw_id=raw_credential_id,
+                response=AuthenticatorAttestationResponse(
+                    client_data_json=base64.urlsafe_b64decode(response_data.client_data_json + '=' * (-len(response_data.client_data_json) % 4)),
+                    attestation_object=base64.urlsafe_b64decode(response_data.attestation_object + '=' * (-len(response_data.attestation_object) % 4))
+                )
+            ),
+            expected_challenge=base64.urlsafe_b64decode(expected_challenge + '=' * (-len(expected_challenge) % 4)),
             expected_rp_id=settings.FRONTEND_RP_ID,
             expected_origin=settings.FRONTEND_ORIGIN,
             require_user_verification=True
         )
-        
+
+        response_credential_id = base64.urlsafe_b64encode(response.credential_id).decode('utf-8').rstrip('=')
+        response_public_key = base64.b64encode(response.credential_public_key).decode('utf-8') 
+
         existing_credential = db.query(PasskeyCredential).filter(
-            PasskeyCredential.credential_id == response.credential_id
+            PasskeyCredential.credential_id == response_credential_id
         ).first()
         
         if existing_credential:
@@ -159,10 +178,16 @@ class PasskeyService:
                 detail="Credential already exists"
             )
         
+        if response_credential_id != response_data.credential_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Credential ID from response does not match expected format"
+            )
+      
         credential_data = PasskeyCredentialCreate(
             user_id=existing_user.id,
-            credential_id=str(response.credential_id),
-            public_key=str(response.credential_public_key),
+            credential_id=str(response_credential_id),
+            public_key=str(response_public_key),
             sign_count=0
         )
         
@@ -237,33 +262,38 @@ class PasskeyService:
             )
         
         challenge_data = json.loads(challenge_data_json)
+        raw_credential_id = base64.urlsafe_b64decode(response_data.credential_id + '=' * (-len(response_data.credential_id) % 4))
+        expected_challenge =  challenge_data.get('challenge') if isinstance(challenge_data, dict) else challenge_data
 
-        try:
-            response = verify_authentication_response(
-                credential=response_data,
-                expected_challenge=challenge_data.get('challenge') if isinstance(challenge_data, dict) else challenge_data,
-                expected_rp_id=settings.FRONTEND_RP_ID,  
-                expected_origin=settings.FRONTEND_ORIGIN,
-                require_user_verification=True,
-                credential_public_key= credential.public_key,
-                credential_current_sign_count= credential.sign_count
-            )
-        
-            Cache.delete(f"webauthn_login_challenge_{credential.user_id}")
+        response = verify_authentication_response(
+            credential=AuthenticationCredential(
+                id=response_data.credential_id,
+                raw_id=raw_credential_id,
+                response=AuthenticatorAssertionResponse(
+                    client_data_json=base64.urlsafe_b64decode(response_data.client_data_json + '=' * (-len(response_data.client_data_json) % 4)),
+                    authenticator_data=base64.urlsafe_b64decode(response_data.authenticator_data + '=' * (-len(response_data.authenticator_data) % 4)),
+                    signature=base64.urlsafe_b64decode(response_data.signature + '=' * (-len(response_data.signature) % 4))
+                )
+            ),
+            expected_challenge=base64.urlsafe_b64decode(expected_challenge + '=' * (-len(expected_challenge) % 4)),
+            expected_rp_id=settings.FRONTEND_RP_ID,  
+            expected_origin=settings.FRONTEND_ORIGIN,
+            credential_public_key=base64.urlsafe_b64decode(credential.public_key + '=' * (-len(credential.public_key) % 4)), 
+            credential_current_sign_count=credential.sign_count,
+            require_user_verification=True
+        )
+    
+        Cache.delete(f"webauthn_login_challenge_{credential.user_id}")
 
-            ## NOTE: Might have to think about the sign_count logic here
-            credential.sign_count = response_data.sign_count
-            db.commit()
+        ## NOTE: Might have to think about the sign_count logic here
+        credential.sign_count = response_data.sign_count + 1
+        db.commit()
 
-            return PasskeyVerificationResult(
-                user_id=credential.user_id,
-                credential_id=credential.credential_id,
-            )
-        except Exception as e:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail=f"Authentication failed: {str(e)}"
-            )
+        return PasskeyVerificationResult(
+            user_id=credential.user_id,
+            credential_id=credential.credential_id,
+        )
+
         
     # Internal method to create a credential
     @staticmethod

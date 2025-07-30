@@ -76,11 +76,13 @@ class PublicKeyCredentialParameters(BaseModel):
 class SerializedWebAuthnChallenge(BaseModel):
     """Schema for serialized WebAuthn challenge data returned by _serialize_challenge_data method."""
     challenge: str = Field(..., example="pGr/DLUhVo1bgo4xQLfYO8J5HHVBiupt8XDDR/osCxApMawNrq2y27bTJMlLwslWVOmaZIVtvgkXUbOE9rjSIw==", description="Base64-encoded cryptographic challenge")
-    user: WebAuthnUser = Field(..., description="User information for the challenge")
-    rp: WebAuthnRelyingParty = Field(..., description="Relying party information")
-    pubKeyCredParams: Optional[List[PublicKeyCredentialParameters]] = Field(None, example=[{"type": "public-key", "alg": -7}], description="Supported public key credential parameters")
+    user: Optional[WebAuthnUser] = Field(None, description="User information for the challenge (registration only)")
+    rp: Optional[WebAuthnRelyingParty] = Field(None, description="Relying party information")
+    pubKeyCredParams: Optional[List[PublicKeyCredentialParameters]] = Field(None, example=[{"type": "public-key", "alg": -7}], description="Supported public key credential parameters (registration only)")
     timeout: int = Field(..., example=300000, description="Challenge timeout in milliseconds")
-    attestation: str = Field(..., example="none", description="Attestation preference")
+    attestation: Optional[str] = Field(None, example="none", description="Attestation preference (registration only)")
+    allowCredentials: Optional[List[Dict[str, Any]]] = Field(None, description="List of allowed credentials (authentication only)")
+    userVerification: Optional[str] = Field(None, example="preferred", description="User verification preference (authentication only)")
 
     class Config:
         json_schema_extra = {
@@ -103,18 +105,6 @@ class SerializedWebAuthnChallenge(BaseModel):
             }
         }
 
-## NOTE: Not used it 
-class SignupChallenge(BaseModel):
-    """Schema for WebAuthn registration challenge."""
-    challenge: str = Field(..., example="abc123", description="Cryptographic challenge")
-    user_id: int = Field(..., example=1, description="User ID for registration")
-    rp: Dict[str, str] = Field(..., example={"name": "MyApp"}, description="Relying party information")
-    user: Dict[str, str] = Field(..., example={"name": "Amit Sharma"}, description="User information")
-    pubKeyCredParams: List[Dict[str, Any]] = Field(..., example=[{"type": "public-key", "alg": -7}], description="Supported public key parameters")
-    timeout: int = Field(default=60000, example=60000, description="Timeout in milliseconds")
-    attestation: str = Field(default="direct", example="direct", description="Attestation preference")
-
-## NOTE: Might not need this, be ok with Dict[str, Any] for flexibility
 class SignupResponse(BaseModel):
     """Schema for WebAuthn registration response."""
     credential_id: str = Field(..., example="cred-123", description="Generated credential ID")
@@ -122,20 +112,27 @@ class SignupResponse(BaseModel):
     attestation_object: str = Field(..., example="attestation-object", description="Attestation object from authenticator")
     client_data_json: str = Field(..., example="client-data-json", description="Client data JSON")
 
-## NOTE: Not used it
-class LoginChallenge(BaseModel):
-    """Schema for WebAuthn authentication challenge."""
-    challenge: str = Field(..., example="xyz789", description="Cryptographic challenge")
-    timeout: int = Field(default=60000, example=60000, description="Timeout in milliseconds")
-    rpId: str = Field(..., example="myapp.com", description="Relying party identifier")
-    userVerification: str = Field(default="preferred", example="preferred", description="User verification requirement")
-    allowCredentials: Optional[List[Dict[str, Any]]] = Field(None, example=[{"id": "cred-123"}], description="Allowed credentials (optional)")
+    class Config:
+        json_schema_extra = {
+                "credential_id": "VzS8YaNMjy5pAxbP5ZkHwgNh_BU",
+                "public_key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEQOxKbOOH9sklC2ViF1RdeuxPoOP4oAWpEjgBhlZv9a+7vs/iaj+ZT2uzmG4CLdh/u+N+XrwSpHnXxmdOnFpSDg",
+                "attestation_object": "o2NmbXRkbm9uZWdhdHRTdG10oGhhdXRoRGF0YViYdKbqkhPJnC90siSSsyDPQCYqlMGpUKA5fyklC2CEHvBdAAAAAPv8MAcVTk7MjAtuAgVX170AFFc0vGGjTI8uaQMWz-WZB8IDYfwVpQECAyYgASFYIEDsSmzjh_bJJQtlYhdUXXrsT6Dj-KAFqRI4AYZWb_WvIlggu77P4mo_mU9rs5huAi3Yf7vjfl68EqR518ZnTpxaUg4",
+                "client_data_json": "eyJ0eXBlIjoid2ViYXV0aG4uY3JlYXRlIiwiY2hhbGxlbmdlIjoic2Q0RUxSN2c5eG9kXzhOZk1aakFYWG9DNHZ4bjhDaEx2S1YwVVdibS1vdTVkYTFwY0kwclNyTVFYemFwWTZwcThMZWw2a1I1VWtBNU5LZDJpV01HbFEiLCJvcmlnaW4iOiJodHRwczovL3dlYmF1dGhuLmlvIiwiY3Jvc3NPcmlnaW4iOmZhbHNlLCJvdGhlcl9rZXlzX2Nhbl9iZV9hZGRlZF9oZXJlIjoiZG8gbm90IGNvbXBhcmUgY2xpZW50RGF0YUpTT04gYWdhaW5zdCBhIHRlbXBsYXRlLiBTZWUgaHR0cHM6Ly9nb28uZ2wveWFiUGV4In0"
+            }
 
-## NOTE: Might not need this, be ok with Dict[str, Any] for flexibility
 class LoginResponse(BaseModel):
     """Schema for WebAuthn authentication response."""
     credential_id: str = Field(..., example="cred-123", description="Credential ID used for authentication")
     signature: str = Field(..., example="signature-data", description="Authentication signature")
-    client_data: str = Field(..., example="client-data-json", description="Client data JSON")
+    client_data_json: str = Field(..., example="client-data-json", description="Client data JSON")
     authenticator_data: str = Field(..., example="authenticator-data", description="Authenticator data")
     sign_count: int = Field(..., example=1, description="Updated signature counter")
+
+    class Config:
+        json_schema_extra = {
+            "credential_id": "VzS8YaNMjy5pAxbP5ZkHwgNh_BU",
+            "signature": "MEQCIFEx1k41KogfFnHmos4fq3XS8nHH5PWgVUyPtOtLJ7XhAiB53LZ0AUc0xTgLIpDAmKhSkfYr928pzyBtuhlzwVpDTg",
+            "client_data_json": "eyJ0eXBlIjoid2ViYXV0aG4uZ2V0IiwiY2hhbGxlbmdlIjoiczZuNGg0M3ZhUGR6RTk5N2E2SVJpSE5xbFRLb0tGeVBRbWJ1OV9JX2NVRlJSaElDekducWRQMFctRWxUWnNaM25jRHJrb05jSUxpXy1PYlFqU1UyTFEiLCJvcmlnaW4iOiJodHRwczovL3dlYmF1dGhuLmlvIiwiY3Jvc3NPcmlnaW4iOmZhbHNlfQ",
+            "authenticator_data": "dKbqkhPJnC90siSSsyDPQCYqlMGpUKA5fyklC2CEHvAdAAAAAA==",
+            "sign_count": 1
+        }
