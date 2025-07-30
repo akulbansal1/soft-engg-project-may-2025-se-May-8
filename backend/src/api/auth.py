@@ -212,7 +212,7 @@ def create_passkey_registration_challenge(
 )
 def verify_passkey_registration(
     request: PasskeyRegistrationRequest,
-    response_data: PasskeyVerificationResult,
+    response_data: SignupResponse,
     response: Response,
     db: Session = Depends(get_db)
 ):
@@ -298,7 +298,7 @@ def create_passkey_login_challenge(
 )
 def verify_passkey_login(
     request: PasskeyLoginRequest,
-    response_data: PasskeyVerificationResult,
+    response_data: LoginResponse,
     response: Response,
     db: Session = Depends(get_db)
 ):

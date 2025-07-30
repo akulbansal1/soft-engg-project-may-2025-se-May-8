@@ -5,6 +5,7 @@ This file contains comprehensive tests for passkey registration, login, and sess
 import pytest
 import json
 import base64
+import concurrent.futures
 from unittest.mock import patch, MagicMock
 from datetime import datetime, timedelta
 
@@ -16,32 +17,6 @@ from src.services.passkey_service import PasskeyService
 
 class TestPasskeyRegistrationAPI:
     """Test passkey registration API endpoints"""
-
-    def test_create_registration_challenge_new_user(self, client, test_db):
-        """Test creating registration challenge for new user"""
-        request_data = {
-            "user_phone": "1234567890",
-            "user_name": "Test User"
-        }
-        
-        with patch('src.services.passkey_service.PasskeyService.create_signup_challenge') as mock_challenge:
-            # Mock properly structured SerializedWebAuthnChallenge
-            from src.schemas.passkey import SerializedWebAuthnChallenge, WebAuthnUser, WebAuthnRelyingParty, PublicKeyCredentialParameters
-            mock_challenge_data = SerializedWebAuthnChallenge(
-                challenge=base64.b64encode(b"test_challenge").decode(),
-                user=WebAuthnUser(id="test_user_id", name="Test User", display_name="Test User"),
-                rp=WebAuthnRelyingParty(id="localhost", name="Test RP"),
-                pubKeyCredParams=[PublicKeyCredentialParameters(type="public-key", alg=-7)],
-                timeout=60000,
-                attestation="direct"
-            )
-            mock_challenge.return_value = mock_challenge_data
-            
-            response = client.post("/api/v1/auth/passkey/register/challenge", json=request_data)
-            
-            assert response.status_code == 200
-            data = response.json()
-            assert "challenge" in data
 
     def test_create_registration_challenge_existing_inactive_user(self, client, test_db):
         """Test creating registration challenge for existing inactive user"""
@@ -159,59 +134,6 @@ class TestPasskeyRegistrationAPI:
             assert call_args[0][3] is None  # user_dob
             assert call_args[0][4] is None  # user_gender
 
-    def test_verify_registration_response_success(self, client, test_db):
-        """Test successful registration verification"""
-        # Create inactive user first
-        user_data = UserCreate(name="Test User", phone="1234567890", is_active=False)
-        user = UserService.register_user(test_db, user_data)
-
-        request_data = {
-            "user_phone": "1234567890",
-            "user_name": "Test User"
-        }
-
-        response_data = {
-            "credential_id": "test_credential_id",
-            "public_key": "test_public_key", 
-            "attestation_object": base64.b64encode(b"test_attestation").decode(),
-            "client_data_json": base64.b64encode(b'{"type":"webauthn.create"}').decode()
-        }
-
-        with patch('src.services.passkey_service.PasskeyService.verify_signup_response') as mock_verify:
-            # Mock successful verification result
-            mock_result = PasskeyVerificationResult(      
-                user_id=user.id,
-                credential_id="test_credential_id",
-            )
-            mock_verify.return_value = mock_result
-
-            with patch('src.services.user_service.UserService.issue_session') as mock_session:
-                # Mock session creation
-                session_data = {
-                    "user_id": user.id,
-                    "session_token": "test_session_token",
-                    "expires_at": (datetime.now() + timedelta(hours=24)).isoformat()
-                }
-                mock_session.return_value = session_data
-
-                # FastAPI expects multiple body parameters as nested JSON
-                full_request = {
-                    "request": request_data,
-                    "response_data": response_data
-                }
-                response = client.post(
-                    "/api/v1/auth/passkey/register/verify",
-                    json=full_request
-                )
-
-                assert response.status_code >= 200
-                data = response.json()
-                assert data["user_id"] == user.id
-                assert data["credential_id"] == "test_credential_id"
-                assert "session_expires_at" in data
-
-                # Check session cookie was set
-                assert "session_token" in response.headers['set-cookie']
 
     def test_verify_registration_response_user_not_found(self, client, test_db):
         """Test registration verification fails for non-existent user"""
@@ -240,53 +162,8 @@ class TestPasskeyRegistrationAPI:
         # Should return an error (likely 404 or 422)
         assert response.status_code >= 400
 
-
 class TestPasskeyLoginAPI:
     """Test passkey login API endpoints"""
-
-    def setup_user_with_credential(self, test_db):
-        """Helper to create user with passkey credential"""
-        # Create active user
-        user_data = UserCreate(name="Test User", phone="1234567890", is_active=True)
-        user = UserService.register_user(test_db, user_data)
-        
-        # Create credential
-        credential_data = PasskeyCredentialCreate(
-            user_id=user.id,
-            credential_id="test_credential_id",
-            public_key="test_public_key",
-            sign_count=0
-        )
-        credential = PasskeyService.create_credential(test_db, credential_data)
-        
-        return user, credential
-
-    def test_create_login_challenge_success(self, client, test_db):
-        """Test creating login challenge for existing credential"""
-        user, credential = self.setup_user_with_credential(test_db)
-
-        request_data = {
-            "credential_id": credential.credential_id
-        }
-
-        with patch('src.services.passkey_service.PasskeyService.create_login_challenge') as mock_challenge:
-            # Mock properly structured SerializedWebAuthnChallenge for login
-            from src.schemas.passkey import SerializedWebAuthnChallenge, WebAuthnUser, WebAuthnRelyingParty
-            mock_challenge_data = SerializedWebAuthnChallenge(
-                challenge=base64.b64encode(b"test_challenge").decode(),
-                user=WebAuthnUser(id="test_user_id", name="Test User", display_name="Test User"),
-                rp=WebAuthnRelyingParty(id="localhost", name="Test RP"),
-                timeout=60000,
-                attestation="direct"
-            )
-            mock_challenge.return_value = mock_challenge_data
-
-            response = client.post("/api/v1/auth/passkey/login/challenge", json=request_data)
-
-            assert response.status_code == 200
-            data = response.json()
-            assert "challenge" in data
-            assert data["challenge"] == mock_challenge_data.challenge
 
     def test_create_login_challenge_credential_not_found(self, client, test_db):
         """Test creating login challenge fails for non-existent credential"""
@@ -299,53 +176,6 @@ class TestPasskeyLoginAPI:
         assert response.status_code == 404
         data = response.json()
         assert "Not found" in data["detail"]
-
-    def test_verify_login_response_success(self, client, test_db):
-        """Test successful login verification"""
-        user, credential = self.setup_user_with_credential(test_db)
-
-        request_data = {
-            "credential_id": credential.credential_id
-        }
-
-        response_data = {
-            "credential_id": credential.credential_id,
-            "signature": base64.b64encode(b"test_signature").decode(),
-            "client_data": base64.b64encode(b'{"type":"webauthn.get"}').decode(),
-            "authenticator_data": base64.b64encode(b"test_auth_data").decode(),
-            "sign_count": 1
-        }
-
-        with patch('src.services.passkey_service.PasskeyService.verify_login_response') as mock_verify:
-            # Mock successful verification result
-            mock_result = PasskeyVerificationResult(
-                user_id=user.id,
-                credential_id=credential.credential_id,
-            )
-            mock_verify.return_value = mock_result
-
-            with patch('src.services.user_service.UserService.issue_session') as mock_session:
-                # Mock session creation
-                session_data = {
-                    "user_id": user.id,
-                    "session_token": "test_session_token",
-                    "expires_at": (datetime.now() + timedelta(hours=24)).isoformat()
-                }
-                mock_session.return_value = session_data
-
-                # FastAPI expects multiple body parameters as nested JSON
-                full_request = {
-                    "request": request_data,
-                    "response_data": response_data
-                }
-                response = client.post(
-                    "/api/v1/auth/passkey/login/verify",
-                    json=full_request
-                )
-
-                assert response.status_code == 200
-                data = response.json()
-                assert data["user_id"] == user.id
 
     def test_verify_login_response_credential_not_found(self, client, test_db):
         """Test login verification fails for non-existent credential"""
@@ -636,3 +466,286 @@ class TestAPIErrorHandling:
         # No response should crash (5xx errors)
         for response in responses:
             assert response.status_code < 500
+
+
+class TestPasskey:
+    """Integration test for complete passkey flow using real WebAuthn data from webauthn.io"""
+    
+    def test_passkey_registration_challenge(self, client, test_db):
+        """Test creation of passkey registration challenge"""
+        from unittest.mock import patch
+        from src.core.config import settings
+        
+        # Disable SMS verification for this test
+        with patch.object(settings, 'SMS_VERIFICATION_ENABLED', False):
+            registration_request = {
+                "user_phone": "1234567890",
+                "user_name": "Test User"
+            }
+            
+            response = client.post(
+                "/api/v1/auth/passkey/register/challenge", 
+                json=registration_request
+            )
+            
+            assert response.status_code == 200
+            challenge_data = response.json()
+            
+            # Verify challenge structure matches expected WebAuthn format
+            assert "challenge" in challenge_data
+            assert "user" in challenge_data
+            assert "rp" in challenge_data
+            assert "timeout" in challenge_data
+            assert "attestation" in challenge_data
+            
+            # Verify user data
+            assert challenge_data["user"]["name"] == "1234567890"
+            assert challenge_data["user"]["display_name"] == "Test User"
+            
+            # Verify RP data
+            assert challenge_data["rp"]["id"] == settings.FRONTEND_RP_ID
+            assert challenge_data["rp"]["name"] == settings.PROJECT_NAME
+
+    def test_passkey_login_challenge(self, client, test_db):
+        """Test creation of passkey login challenge"""
+        from unittest.mock import patch
+        from src.services.passkey_service import PasskeyService
+        from src.schemas.passkey import PasskeyCredentialCreate
+        from src.services.user_service import UserService
+        from src.schemas.user import UserCreate
+        
+        # Create a test user and credential first
+        user_data = UserCreate(name="Test User", phone="1234567890", is_active=True)
+        user = UserService.register_user(test_db, user_data)
+        
+        credential_data = PasskeyCredentialCreate(
+            user_id=user.id,
+            credential_id="VzS8YaNMjy5pAxbP5ZkHwgNh_BU",
+            public_key="pQECAyYgASFYIEDsSmzjh/bJJQtlYhdUXXrsT6Dj+KAFqRI4AYZWb/WvIlggu77P4mo/mU9rs5huAi3Yf7vjfl68EqR518ZnTpxaUg4",
+            sign_count=0
+        )
+        PasskeyService.create_credential(test_db, credential_data)
+        
+        login_request = {
+            "credential_id": "VzS8YaNMjy5pAxbP5ZkHwgNh_BU"
+        }
+        
+        response = client.post(
+            "/api/v1/auth/passkey/login/challenge",
+            json=login_request
+        )
+        
+        challenge_data = response.json()
+        print(challenge_data)
+        
+        assert response.status_code == 200
+        # Verify challenge structure
+        assert "challenge" in challenge_data
+        assert "timeout" in challenge_data
+
+    def test_passkey_registration_verification_with_real_webauthn_data(self, client, test_db):
+        """
+        Test passkey registration verification using real WebAuthn data from webauthn.io
+        This is the main integration test that checks if our API can handle real WebAuthn responses
+        """
+        from unittest.mock import patch
+        from src.core.config import settings
+        from src.utils.cache import Cache
+        from src.services.user_service import UserService
+        from src.schemas.user import UserCreate
+        import json
+        import base64
+        
+        # Disable SMS verification 
+        with patch.object(settings, 'SMS_VERIFICATION_ENABLED', False):
+            
+            # Step 1: Mock the entire registration challenge creation to return consistent data
+            user_phone = "1234567890"
+            user_name = user_phone 
+
+            # Step 1: Set up - create user and credential as if registration was successful
+            user_data = UserCreate(name="Test User", phone="1234567890", is_active=True)
+            user = UserService.register_user(test_db, user_data)
+
+            webauthn_io_user_id = "d2ViYXV0aG5pby0xMjM0NTY3ODkw" 
+            
+            # Return the exact challenge structure from webauthn.io
+            from src.schemas.passkey import SerializedWebAuthnChallenge, WebAuthnUser, WebAuthnRelyingParty
+            mock_challenge_data = SerializedWebAuthnChallenge(
+                challenge="sd4ELR7g9xod_8NfMZjAXXoC4vxn8ChLvKV0UWbm-ou5da1pcI0rSrMQXzapY6pq8Lel6kR5UkA5NKd2iWMGlQ",
+                user=WebAuthnUser(
+                    id=webauthn_io_user_id,
+                    name=user_phone,
+                    display_name=user_phone 
+                ),
+                rp=WebAuthnRelyingParty(
+                    id="webauthn.io",
+                    name="webauthn.io"
+                ),
+                timeout=60000,
+                attestation="none"
+            )
+
+            # Step 2: Set up the cache manually with the exact challenge data that matches webauthn.io
+            real_challenge_data = {
+                "challenge": "sd4ELR7g9xod_8NfMZjAXXoC4vxn8ChLvKV0UWbm-ou5da1pcI0rSrMQXzapY6pq8Lel6kR5UkA5NKd2iWMGlQ",
+                "user": {
+                    "id": webauthn_io_user_id,
+                    "name": user_phone,
+                    "display_name": user_phone
+                },
+                "rp": {
+                    "name": "webauthn.io",
+                    "id": "webauthn.io"
+                },
+                "timeout": 60000,
+                "attestation": "none"
+            }
+            
+            # Step 2: Set up the cache manually with the exact challenge data that matches webauthn.io
+            real_challenge_data = {
+                "challenge": "sd4ELR7g9xod_8NfMZjAXXoC4vxn8ChLvKV0UWbm-ou5da1pcI0rSrMQXzapY6pq8Lel6kR5UkA5NKd2iWMGlQ",
+                "user": {
+                    "id": webauthn_io_user_id,
+                    "name": user_phone,
+                    "display_name": user_phone
+                },
+                "rp": {
+                    "name": "webauthn.io",
+                    "id": "webauthn.io"
+                },
+                "timeout": 60000,
+                "attestation": "none"
+            }
+            
+            # Set the challenge in cache with our test user ID
+            Cache.set(
+                f"webauthn_signup_challenge_{user.id}", 
+                json.dumps(real_challenge_data), 
+                expiry=settings.CHALLENGE_CACHE_EXPIRY
+            )
+            
+            # Step 3: Create the registration verification request using real webauthn.io data
+            verification_request = {
+                "user_phone": user_phone,
+                "user_name": user_name
+            }
+            
+            # Real WebAuthn registration response from webauthn.io
+            signup_response = {
+                "credential_id": "VzS8YaNMjy5pAxbP5ZkHwgNh_BU",
+                "public_key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEQOxKbOOH9sklC2ViF1RdeuxPoOP4oAWpEjgBhlZv9a+7vs/iaj+ZT2uzmG4CLdh/u+N+XrwSpHnXxmdOnFpSDg",
+                "attestation_object": "o2NmbXRkbm9uZWdhdHRTdG10oGhhdXRoRGF0YViYdKbqkhPJnC90siSSsyDPQCYqlMGpUKA5fyklC2CEHvBdAAAAAPv8MAcVTk7MjAtuAgVX170AFFc0vGGjTI8uaQMWz-WZB8IDYfwVpQECAyYgASFYIEDsSmzjh_bJJQtlYhdUXXrsT6Dj-KAFqRI4AYZWb_WvIlggu77P4mo_mU9rs5huAi3Yf7vjfl68EqR518ZnTpxaUg4",
+                "client_data_json": "eyJ0eXBlIjoid2ViYXV0aG4uY3JlYXRlIiwiY2hhbGxlbmdlIjoic2Q0RUxSN2c5eG9kXzhOZk1aakFYWG9DNHZ4bjhDaEx2S1YwVVdibS1vdTVkYTFwY0kwclNyTVFYemFwWTZwcThMZWw2a1I1VWtBNU5LZDJpV01HbFEiLCJvcmlnaW4iOiJodHRwczovL3dlYmF1dGhuLmlvIiwiY3Jvc3NPcmlnaW4iOmZhbHNlLCJvdGhlcl9rZXlzX2Nhbl9iZV9hZGRlZF9oZXJlIjoiZG8gbm90IGNvbXBhcmUgY2xpZW50RGF0YUpTT04gYWdhaW5zdCBhIHRlbXBsYXRlLiBTZWUgaHR0cHM6Ly9nb28uZ2wveWFiUGV4In0"
+            }
+            
+            # Step 4: Now test the real verification with proper setup
+            with patch.object(settings, 'FRONTEND_ORIGIN', 'https://webauthn.io'), \
+                    patch.object(settings, 'FRONTEND_RP_ID', 'webauthn.io'):
+
+                request_payload = {
+                    "request": verification_request,   # PasskeyRegistrationRequest
+                    "response_data": signup_response   # SignupResponse
+                }
+                
+                response = client.post(
+                    "/api/v1/auth/passkey/register/verify",
+                    json=request_payload  # Send as JSON with nested structure
+                )
+                
+                print(f"Registration verification status: {response.status_code}")
+                if response.status_code != 200:
+                    print(f"Error response: {response.json()}")
+                
+                assert response.status_code == 200
+                result = response.json()
+                assert result["credential_id"] == "VzS8YaNMjy5pAxbP5ZkHwgNh_BU"
+                assert result["user_id"] == user.id
+                
+                # Verify session cookie was set
+                cookies = response.headers.get('set-cookie', '')
+                assert 'session_token' in cookies
+            
+    def test_passkey_login_verification_with_real_webauthn_data(self, client, test_db):
+        """
+        Test passkey login verification using real WebAuthn data from webauthn.io
+        This test assumes registration was successful and tests the login flow
+        """
+        from unittest.mock import patch
+        from src.core.config import settings
+        from src.utils.cache import Cache
+        from src.services.passkey_service import PasskeyService
+        from src.schemas.passkey import PasskeyCredentialCreate
+        from src.services.user_service import UserService
+        from src.schemas.user import UserCreate
+        import json
+        
+        # Step 1: Set up - create user and credential as if registration was successful
+        user_data = UserCreate(name="Test User", phone="1234567890", is_active=True)
+        user = UserService.register_user(test_db, user_data)
+        
+        # Create credential with the same ID from webauthn.io data
+        credential_data = PasskeyCredentialCreate(
+            user_id=user.id,
+            credential_id="VzS8YaNMjy5pAxbP5ZkHwgNh_BU",
+            public_key="pQECAyYgASFYIEDsSmzjh/bJJQtlYhdUXXrsT6Dj+KAFqRI4AYZWb/WvIlggu77P4mo/mU9rs5huAi3Yf7vjfl68EqR518ZnTpxaUg4",
+            sign_count=0
+        )
+        PasskeyService.create_credential(test_db, credential_data)
+        
+        # Step 2: Set up login challenge cache with real challenge from webauthn.io
+        real_login_challenge = {
+            "challenge": "s6n4h43vaPdzE997a6IRiHNqlTKoKFyPQmbu9_I_cUFRRhICzGnqdP0W-ElTZsZ3ncDrkoNcILi_-ObQjSU2LQ",
+            "timeout": 60000,
+            "rpId": "webauthn.io"
+        }
+
+        Cache.set(
+            f"webauthn_login_challenge_{user.id}",
+            json.dumps(real_login_challenge),
+            expiry=settings.CHALLENGE_CACHE_EXPIRY
+        )
+        
+        # Step 3: Create login verification request
+        login_request = {
+            "credential_id": "VzS8YaNMjy5pAxbP5ZkHwgNh_BU"
+        }
+        
+        # Real WebAuthn login response from webauthn.io
+        login_response_data = {
+            "credential_id": "VzS8YaNMjy5pAxbP5ZkHwgNh_BU",
+            "signature": "MEQCIFEx1k41KogfFnHmos4fq3XS8nHH5PWgVUyPtOtLJ7XhAiB53LZ0AUc0xTgLIpDAmKhSkfYr928pzyBtuhlzwVpDTg",
+            "client_data_json": "eyJ0eXBlIjoid2ViYXV0aG4uZ2V0IiwiY2hhbGxlbmdlIjoiczZuNGg0M3ZhUGR6RTk5N2E2SVJpSE5xbFRLb0tGeVBRbWJ1OV9JX2NVRlJSaElDekducWRQMFctRWxUWnNaM25jRHJrb05jSUxpXy1PYlFqU1UyTFEiLCJvcmlnaW4iOiJodHRwczovL3dlYmF1dGhuLmlvIiwiY3Jvc3NPcmlnaW4iOmZhbHNlfQ",
+            "authenticator_data": "dKbqkhPJnC90siSSsyDPQCYqlMGpUKA5fyklC2CEHvAdAAAAAA==",
+            "sign_count": 1
+        }
+        
+        # Step 4: Test the real login verification
+        with patch.object(settings, 'FRONTEND_ORIGIN', 'https://webauthn.io'), \
+             patch.object(settings, 'FRONTEND_RP_ID', 'webauthn.io'):
+            
+
+            request_payload = {
+                "request": login_request,           # PasskeyLoginRequest
+                "response_data": login_response_data # LoginResponse (or similar)
+            }
+            
+            response = client.post(
+                "/api/v1/auth/passkey/login/verify",
+                json=request_payload  # Send as JSON with nested structure
+            )
+            
+            print(f"Login verification status: {response.status_code}")
+            if response.status_code != 200:
+                print(f"Error response: {response.json()}")
+
+
+            assert response.status_code == 200
+            result = response.json()
+            assert "user_id" in result
+            assert "credential_id" in result
+            assert result["user_id"] == user.id
+            
+            # Verify session cookie was set
+            cookies = response.headers.get('set-cookie', '')
+            assert 'session_token' in cookies
