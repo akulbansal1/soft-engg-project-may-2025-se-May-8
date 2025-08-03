@@ -33,6 +33,7 @@ export default defineConfig({
     },
   },
   server: {
+    port: 3000,
     proxy: {
       '/api': {
         target: 'https://backend-server-production-5c03.up.railway.app',
@@ -41,5 +42,8 @@ export default defineConfig({
         rewrite: path => path.replace(/^\/api/, '/api'), // Keeps /api prefix
       },
     },
-  },
+    allowedHosts: [
+      '5f8c5d4ac706.ngrok-free.app'
+    ],
+  }
 });
