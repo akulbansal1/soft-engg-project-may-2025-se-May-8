@@ -28,7 +28,6 @@ import {
 
 const HomePage: React.FC = () => {
   const navigate = useNavigate();
-  const firstName = "John";
 
   const menuItems = [
     { title: "Medicines", route: "/medicines", icon: Pill },
@@ -66,7 +65,10 @@ const HomePage: React.FC = () => {
       }
 
       const data = await response.json();
-        setUser(data);
+      setUser(data);
+      localStorage.setItem("user", JSON.stringify(data));
+      console.log("User data fetched:", data);
+        
       } catch (err) {
         console.error("Auth error:", err);
         navigate("/authentication"); // Redirect to authentication page if not authenticated
@@ -101,6 +103,14 @@ const HomePage: React.FC = () => {
     setAlertSent(false);
   };
 
+  const handleLogout = () => {
+    fetch("/api/v1/auth/logout", {
+      method: "POST",
+    });
+    setUser(null);
+    navigate("/authentication");
+  };
+
   return (
     <div className="h-full min-h-[calc(100dvh-110px)] flex flex-col">
       <header className="flex justify-between items-center mb-6">
@@ -116,7 +126,7 @@ const HomePage: React.FC = () => {
           <Button
             variant="ghost"
             className="hover:cursor-pointer"
-            onClick={() => navigate("/authentication")}
+            onClick={() => handleLogout()}
           >
             <LogOut size={24} />
           </Button>
