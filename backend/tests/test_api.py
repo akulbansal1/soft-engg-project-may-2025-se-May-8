@@ -27,34 +27,14 @@ class TestAPIEndpoints:
         assert "status" in data
         assert "service" in data
 
-    def test_api_error_handling(self, client):
-        """Test API error handling for non-existent endpoints"""
-        response = client.get("/api/v1/does-not-exist")
-        assert response.status_code == 404
-        
-        data = response.json()
-        assert "detail" in data
-
-    def test_api_content_negotiation(self, client):
-        """Test that API handles content negotiation properly"""
-        # Test with Accept header for JSON
-        headers = {"Accept": "application/json"}
-        response = client.get("/api/v1/health", headers=headers)
-        assert response.status_code == 200
-        assert "application/json" in response.headers.get("content-type", "")
-
     def test_api_method_validation(self, client):
-        """Test that API validates HTTP methods correctly"""
-        # POST to health endpoint should not be allowed
-        response = client.post("/api/v1/health")
+        """Test that API validates HTTP methods correctly for specific endpoints"""
+        # Test method validation on a different endpoint than test_main.py
+        # Only test PUT and DELETE here since POST is covered in test_main.py
+        response = client.put("/api/v1/")
         assert response.status_code == 405
 
-        # PUT to health endpoint should not be allowed
-        response = client.put("/api/v1/health")
-        assert response.status_code == 405
-
-        # DELETE to health endpoint should not be allowed
-        response = client.delete("/api/v1/health")
+        response = client.delete("/api/v1/")
         assert response.status_code == 405
 
 
@@ -62,12 +42,12 @@ class TestRequestHandling:
     """Test request handling and middleware"""
 
     def test_cors_middleware(self, client):
-        """Test CORS middleware functionality"""
-        # Test preflight request
+        """Test CORS middleware functionality with specific headers"""
+        # Test more comprehensive CORS functionality than test_main.py
         headers = {
             "Origin": "http://localhost:3000",
-            "Access-Control-Request-Method": "GET",
-            "Access-Control-Request-Headers": "Content-Type"
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "Content-Type,Authorization"
         }
         response = client.options("/api/v1/health", headers=headers)
         
