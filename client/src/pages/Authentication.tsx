@@ -20,7 +20,6 @@ import {
   User,
   Phone,
   ScanFace,
-  PhoneCallIcon,
   UserCheck2Icon,
   UserPlus2,
 } from "lucide-react";
@@ -34,7 +33,7 @@ import BackgroundAnimation from "@/components/BackgroundAnimation";
 const phoneValidation = yup
   .string()
   .required("Phone number is required")
-  .matches(/^\d+$/, "Phone number must contain only digits");
+  .matches(/^\+?\d+$/, "Phone number must contain only digits");
 
 export const signInSchema = yup.object({
   phone: phoneValidation,
@@ -68,46 +67,79 @@ const AuthenticationPage: React.FC = () => {
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    try {
-      const validData = await signInSchema.validate(
-        { phone: signInPhone },
-        { abortEarly: false }
-      );
-      console.log("Sign-in data:", validData);
-      setSignInError("");
-      navigate("/otp"); // Redirect on valid input
-    } catch (err: any) {
-      if (err.errors && err.errors[0]) {
-        setSignInError(err.errors[0]);
-      }
-      console.log("Sign-in validation error:", err);
-    }
   };
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setSignupErrors({});
+    if (!signupData.firstName) {
+      setSignupErrors((prev) => ({
+        ...prev,
+        firstName: "First name is required",
+      }));
+    }
+    if (!signupData.lastName) {
+      setSignupErrors((prev) => ({
+        ...prev,
+        lastName: "Last name is required",
+      }));
+    }
+    if (!signupData.phone) {
+      setSignupErrors((prev) => ({
+        ...prev,
+        phone: "Phone number is required",
+      }));
+    }
+    if (!signupData.dob) {
+      setSignupErrors((prev) => ({
+        ...prev,
+        dob: "Date of birth is required",
+      }));
+    }
+    if (!signupData.gender) {
+      setSignupErrors((prev) => ({
+        ...prev,
+        gender: "Gender is required",
+      }));
+    }
+
+    if (!signupData.firstName || !signupData.lastName || !signupData.phone || !signupData.dob || !signupData.gender) {
+      setLoading(false);
+      return;
+    }
+
     try {
-      const validData = await signupSchema.validate(signupData, {
-        abortEarly: false,
+      // Send POST request to backend API
+      const response = await fetch("/api/v1/auth/sms/send", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ phone: signupData.phone }), // Include '+' if not already present
       });
-      console.log("Validated signup data:", validData);
-      navigate("/otp");
-    } catch (err: any) {
-      if (err.inner) {
-        const fieldErrors: { [key: string]: string } = {};
-        err.inner.forEach((validationErr: any) => {
-          if (validationErr.path)
-            fieldErrors[validationErr.path] = validationErr.message;
-        });
-        setSignupErrors(fieldErrors);
-        console.log("Signup validation errors:", fieldErrors);
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to send OTP.");
       }
+
+      navigate("/otp", { state: { user_info: signupData } });
+
+    } catch (err: any) {
+      if (err.name === "ValidationError" && err.errors?.[0]) {
+        setSignupErrors(err.errors[0]);
+      } else {
+        setSignupErrors(err.message || "An unexpected error occurred.");
+      }
+      console.log("OTP API error:", err);
     } finally {
       setLoading(false);
     }
+    
   };
+
+
 
   const handleSignInChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSignInPhone(e.target.value);
@@ -179,13 +211,6 @@ const AuthenticationPage: React.FC = () => {
                   )}
 
                   <div className="flex flex-col mt-5">
-                    <Button
-                      type="submit"
-                      className="flex-1 h-12 rounded-xl"
-                    >
-                      <PhoneCallIcon className="w-4 h-4 mr-2" /> Get OTP
-                    </Button>
-                    <span className="text-center text-sm mt-1 mb-1">or</span>
                     <Button
                       type="button"
                       className="flex-1 h-12 rounded-xl"
@@ -304,9 +329,9 @@ const AuthenticationPage: React.FC = () => {
                         <SelectValue placeholder="Select Gender" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="male">Male</SelectItem>
-                        <SelectItem value="female">Female</SelectItem>
-                        <SelectItem value="other">Other</SelectItem>
+                        <SelectItem value="Male">Male</SelectItem>
+                        <SelectItem value="Female">Female</SelectItem>
+                        <SelectItem value="Other">Other</SelectItem>
                         <SelectItem value="prefer_not_say">
                           Prefer not to say
                         </SelectItem>
