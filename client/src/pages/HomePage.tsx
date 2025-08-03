@@ -45,8 +45,37 @@ const HomePage: React.FC = () => {
   const [sosOpen, setSosOpen] = useState(false);
   const [countdown, setCountdown] = useState(10);
   const [alertSent, setAlertSent] = useState(false);
+  
+  const [user, setUser] = useState<{ name: string; dob: string; gender: string; phone: string; id: number } | null>(null);
 
   const isDark = document.documentElement.classList.contains("dark");
+
+  useEffect(() => {
+  const fetchUser = async () => {
+    try {
+      const response = await fetch("/api/v1/auth/me", {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include", // Important if backend sets HttpOnly cookies
+      });
+
+      if (!response.ok) {
+        throw new Error("User not authenticated");
+      }
+
+      const data = await response.json();
+        setUser(data);
+      } catch (err) {
+        console.error("Auth error:", err);
+        navigate("/authentication"); // Redirect to authentication page if not authenticated
+      }
+    };
+
+    fetchUser();
+  }, []);
+
 
   useEffect(() => {
     let timer: NodeJS.Timeout;
@@ -75,7 +104,7 @@ const HomePage: React.FC = () => {
   return (
     <div className="h-full min-h-[calc(100dvh-110px)] flex flex-col">
       <header className="flex justify-between items-center mb-6">
-        <h2 className="text-xl font-semibold">Welcome, {firstName}</h2>
+        <h2 className="text-xl font-semibold">Welcome, {user?.name}</h2>
         <div className="flex space-x-2">
           <Button
             variant="ghost"
