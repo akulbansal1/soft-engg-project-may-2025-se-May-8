@@ -21,23 +21,7 @@ pip install -q -r requirements.txt
 # Create test results directory
 mkdir -p test-results
 
-# Run different test categories
-echo ""
-echo "🏥 Running Health Check Tests..."
-pytest tests/test_main.py::TestServerHealth -v
-
-echo ""
-echo "🗄️ Running Database Tests..."
-pytest tests/test_database.py -v
-
-echo ""
-echo "🔧 Running Configuration Tests..."
-pytest tests/test_config.py -v
-
-echo ""
-echo "🌐 Running API Tests..."
-pytest tests/test_api.py -v
-
+# Run test categories
 echo ""
 echo "📊 Running All Tests with Coverage..."
 pytest tests/ --cov=src --cov-report=html --cov-report=term-missing --cov-report=xml

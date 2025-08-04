@@ -190,15 +190,15 @@ class TestConfigurationValidation:
     def test_timeouts_are_reasonable(self):
         """Test that configured timeouts are reasonable"""
         # Challenge timeout should be between 1 minute and 1 hour (in milliseconds)
-        min_timeout = int(timedelta(minutes=1).total_seconds() * 1000)  # 1 min in milliseconds
-        max_timeout = int(timedelta(hours=1).total_seconds() * 1000)   # 1 hour in milliseconds
+        min_timeout = int(timedelta(minutes=1).total_seconds() * 1000)  
+        max_timeout = int(timedelta(hours=1).total_seconds() * 1000)   
         assert min_timeout <= settings.CHALLENGE_TIMEOUT <= max_timeout
         
         # Cache expiry should be reasonable (in seconds)
-        assert 60 <= settings.CHALLENGE_CACHE_EXPIRY <= 7200  # 1 min to 2 hours in seconds
-        
+        assert 60 <= settings.CHALLENGE_CACHE_EXPIRY <= 7200  
+
         # Session expiry should be at least 1 hour
-        assert settings.SESSION_TOKEN_EXPIRY.total_seconds() >= 3600  # At least 1 hour
+        assert settings.SESSION_TOKEN_EXPIRY.total_seconds() >= 3600 
 
     def test_required_settings_present(self):
         """Test that all required settings are present"""

@@ -30,8 +30,7 @@ class TestServerHealth:
     def test_cors_headers(self, client):
         """Test CORS headers are properly set"""
         response = client.options("/api/v1/")
-        # OPTIONS requests should be handled properly
-        assert response.status_code in [200, 405]  # Some frameworks return 405 for OPTIONS
+        assert response.status_code in [200, 405]  
 
     def test_404_handling(self, client):
         """Test 404 error handling"""
@@ -62,7 +61,6 @@ class TestServerHealth:
         """Test ReDoc documentation interface"""
         response = client.get("/redoc")
         assert response.status_code == 200
-        # Should return HTML content
         assert "text/html" in response.headers.get("content-type", "")
 
 
@@ -71,11 +69,9 @@ class TestAPIStructure:
     
     def test_api_v1_prefix(self, client):
         """Test that API uses v1 prefix correctly"""
-        # Root endpoint should work
         response = client.get("/api/v1/")
         assert response.status_code == 200
         
-        # Without prefix should return 404
         response = client.get("/")
         assert response.status_code == 404
 
@@ -94,7 +90,6 @@ class TestAPIStructure:
         end_time = time.time()
         
         assert response.status_code == 200
-        # Should respond within 1 second for health check
         assert (end_time - start_time) < 1.0
 
 
@@ -106,7 +101,6 @@ class TestSecurityHeaders:
         response = client.get("/api/v1/nonexistent")
         assert response.status_code == 404
         
-        # Should not contain stack traces or internal paths
         content = response.text.lower()
         assert "traceback" not in content
         assert "file" not in content
@@ -114,6 +108,5 @@ class TestSecurityHeaders:
 
     def test_method_not_allowed(self, client):
         """Test proper handling of unsupported HTTP methods"""
-        # POST to health check should not be allowed
         response = client.post("/api/v1/health")
         assert response.status_code == 405

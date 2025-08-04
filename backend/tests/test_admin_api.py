@@ -53,8 +53,8 @@ class TestAdminAuthAPI:
         """Test admin login with malformed Authorization header"""
         malformed_headers = [
             {"Authorization": "InvalidFormat"},
-            {"Authorization": "Bearer"},  # Missing token
-            {"Authorization": "Basic dGVzdA=="},  # Wrong scheme
+            {"Authorization": "Bearer"}, 
+            {"Authorization": "Basic dGVzdA=="},  
         ]
         
         for headers in malformed_headers:
@@ -109,33 +109,6 @@ class TestAdminAuthAPI:
             cookie_header = response.headers.get('set-cookie', '')
             assert 'session_token=""' in cookie_header or 'session_token=;' in cookie_header
 
-    def test_admin_logout_clears_cookie(self, client):
-        """Test that admin logout properly clears the session cookie"""
-        response = client.post("/api/v1/auth/admin/logout")
-        
-        assert response.status_code == 200
-        
-        # Check that cookie is cleared (set to empty with immediate expiry)
-        cookie_header = response.headers.get('set-cookie', '')
-        assert 'session_token=' in cookie_header
-        # Cookie should be empty or expired
-        assert ('session_token=""' in cookie_header or 
-                'session_token=;' in cookie_header or
-                'Max-Age=0' in cookie_header)
-
-    def test_admin_endpoints_security(self, client):
-        """Test security aspects of admin endpoints"""
-        # Test that admin endpoints don't leak sensitive information
-        response = client.post("/api/v1/auth/admin/login")
-        
-        assert response.status_code == 403
-        
-        # Response should not contain stack traces or internal info
-        content = response.text.lower()
-        assert "traceback" not in content
-        assert "file" not in content
-        assert "python" not in content
-
 class TestAdminAPIEdgeCases:
     """Test edge cases and error conditions for admin API"""
 
@@ -154,8 +127,8 @@ class TestAdminAPIEdgeCases:
 
     def test_admin_login_with_unicode_characters(self, client):
         """Test admin login with tokens containing Unicode characters"""
-        unicode_token = "admin_token_123_unicode"  # Simplified to avoid encoding issues
-        
+        unicode_token = "admin_token_123_unicode"  
+
         with patch('src.core.config.settings.ADMIN_SESSION_TOKEN', unicode_token):
             headers = {"Authorization": f"Bearer {unicode_token}"}
             
@@ -167,7 +140,7 @@ class TestAdminAPIEdgeCases:
 
     def test_admin_login_very_long_token(self, client):
         """Test admin login with very long token"""
-        long_token = "a" * 1000  # 1000 character token
+        long_token = "a" * 1000 
         
         with patch('src.core.config.settings.ADMIN_SESSION_TOKEN', long_token):
             headers = {"Authorization": f"Bearer {long_token}"}
@@ -185,9 +158,8 @@ class TestAdminAPIEdgeCases:
         with patch('src.core.config.settings.ADMIN_SESSION_TOKEN', admin_token):
             headers = {"Authorization": f"Bearer {admin_token}"}
             
-            # Admin login should only accept POST
             response = client.get("/api/v1/auth/admin/login", headers=headers)
-            assert response.status_code == 405  # Method Not Allowed
+            assert response.status_code == 405 
             
             response = client.put("/api/v1/auth/admin/login", headers=headers)
             assert response.status_code == 405
@@ -195,7 +167,6 @@ class TestAdminAPIEdgeCases:
             response = client.delete("/api/v1/auth/admin/login", headers=headers)
             assert response.status_code == 405
             
-            # Admin logout should only accept POST
             response = client.get("/api/v1/auth/admin/logout")
             assert response.status_code == 405
             

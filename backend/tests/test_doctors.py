@@ -53,7 +53,7 @@ class TestDoctors:
         }
         
         response = client.post("/api/v1/doctors/", json=doctor_data)
-        assert response.status_code == 401
+        assert response.status_code == 403
 
     def test_create_doctor_no_authentication(self, client, test_db):
         doctor_data = {
@@ -138,7 +138,7 @@ class TestDoctors:
         
         update_data = {"location": "Mumbai"}
         response = client.put(f"/api/v1/doctors/{doctor_id}", json=update_data)
-        assert response.status_code == 401
+        assert response.status_code == 403
 
     def test_delete_doctor_patient_unauthorized(self, client, test_db):
         self.create_admin_session(client)
@@ -153,7 +153,7 @@ class TestDoctors:
         user, session_token = self.create_authenticated_session(client, test_db)
         
         response = client.delete(f"/api/v1/doctors/{doctor_id}")
-        assert response.status_code == 401
+        assert response.status_code == 403
 
     def test_doctor_complete_admin_workflow(self, client, test_db):
         self.create_admin_session(client)

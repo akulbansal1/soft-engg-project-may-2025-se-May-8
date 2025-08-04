@@ -28,11 +28,9 @@ def mock_sms_services():
         mock_sms_service.send_emergency_message.return_value = {'success': True}
         mock_sms_service.is_phone_verified.return_value = True
         
-        # Make both mock functions return our mock service
         mock_get_sms.return_value = mock_sms_service
         mock_api_get_sms.return_value = mock_sms_service
         
-        # Also set the singleton instance to None to force fresh mocking
         mock_instance = None
         
         yield mock_sms_service
@@ -49,7 +47,6 @@ class TestUserListingAPI:
         session_data = UserService.issue_session(user.id)
         session_token = session_data["session_token"]
         
-        # Set session cookie in the client
         client.cookies.set("session_token", session_token)
         
         return user, session_token
@@ -58,7 +55,6 @@ class TestUserListingAPI:
         """Test getting user list with authentication"""
         user, session_token = self.create_authenticated_user(client, test_db)
         
-        # Create additional users for testing pagination
         user2_data = UserCreate(name="User 2", phone="2222222222", is_active=True)
         user3_data = UserCreate(name="User 3", phone="3333333333", is_active=True)
         UserService.register_user(test_db, user2_data)
@@ -69,9 +65,8 @@ class TestUserListingAPI:
         assert response.status_code == 200
         data = response.json()
         assert isinstance(data, list)
-        assert len(data) >= 3  # At least our 3 test users
+        assert len(data) >= 3  
         
-        # Check user data structure
         for user_data in data:
             assert "id" in user_data
             assert "name" in user_data
@@ -82,13 +77,12 @@ class TestUserListingAPI:
         """Test user listing with pagination parameters"""
         user, session_token = self.create_authenticated_user(client, test_db)
         
-        # Test with skip and limit parameters
         response = client.get("/api/v1/users/?skip=0&limit=2")
         
         assert response.status_code == 200
         data = response.json()
         assert isinstance(data, list)
-        assert len(data) <= 2  # Should respect limit
+        assert len(data) <= 2
 
     def test_get_users_unauthenticated(self, client, test_db):
         """Test getting user list without authentication"""
@@ -115,11 +109,9 @@ class TestUserListingAPI:
         """Test getting another user's profile (should be forbidden)"""
         user1, session_token = self.create_authenticated_user(client, test_db, "User 1", "1111111111")
         
-        # Create another user
         user2_data = UserCreate(name="User 2", phone="2222222222", is_active=True)
         user2 = UserService.register_user(test_db, user2_data)
         
-        # Try to access user2's profile while logged in as user1
         response = client.get(f"/api/v1/users/{user2.id}")
         
         assert response.status_code == 403
@@ -149,7 +141,6 @@ class TestSOSAPI:
         session_data = UserService.issue_session(user.id)
         session_token = session_data["session_token"]
         
-        # Set session cookie in the client
         client.cookies.set("session_token", session_token)
         
         return user, session_token
@@ -158,7 +149,6 @@ class TestSOSAPI:
         """Test successful SOS trigger with emergency contacts"""
         user, session_token = self.create_authenticated_user(client, test_db)
         
-        # Mock emergency contacts
         mock_contacts = [
             MagicMock(phone="+1234567890", name="Contact 1"),
             MagicMock(phone="+0987654321", name="Contact 2")
@@ -171,7 +161,6 @@ class TestSOSAPI:
         with patch('src.services.emergency_contact_service.EmergencyContactService.get_contacts_by_user') as mock_get_contacts:
             mock_get_contacts.return_value = mock_contacts
             
-            # SMS service is already mocked by the fixture
             mock_sms_services.send_emergency_message.return_value = {'success': True}
             
             response = client.post(f"/api/v1/users/{user.id}/sos/trigger", json=request_data)
@@ -183,7 +172,6 @@ class TestSOSAPI:
             assert "Emergency SOS triggered" in data["message"]
             assert data["failed_notifications"] == []
             
-            # Verify SMS service was called for each contact
             assert mock_sms_services.send_emergency_message.call_count == 2
 
     def test_trigger_sos_no_contacts(self, client, test_db, mock_sms_services):
@@ -195,7 +183,7 @@ class TestSOSAPI:
         }
         
         with patch('src.services.emergency_contact_service.EmergencyContactService.get_contacts_by_user') as mock_get_contacts:
-            mock_get_contacts.return_value = []  # No contacts
+            mock_get_contacts.return_value = []  
             
             response = client.post(f"/api/v1/users/{user.id}/sos/trigger", json=request_data)
             
@@ -203,14 +191,12 @@ class TestSOSAPI:
             data = response.json()
             assert "No emergency contacts found" in data["detail"]
             
-            # Verify no SMS was attempted
             mock_sms_services.send_emergency_message.assert_not_called()
 
     def test_trigger_sos_partial_failure(self, client, test_db, mock_sms_services):
         """Test SOS trigger with some failed notifications"""
         user, session_token = self.create_authenticated_user(client, test_db)
         
-        # Mock emergency contacts
         mock_contacts = [
             MagicMock(phone="+1234567890", name="Contact 1"),
             MagicMock(phone="+0987654321", name="Contact 2"),
@@ -222,34 +208,31 @@ class TestSOSAPI:
         }
         
         def mock_send_emergency_message(phone, user_name, location=None):
-            if phone == "+1111111111":  # This contact fails
+            if phone == "+1111111111":
                 raise Exception("SMS service error")
             return {'success': True}
         
         with patch('src.services.emergency_contact_service.EmergencyContactService.get_contacts_by_user') as mock_get_contacts:
             mock_get_contacts.return_value = mock_contacts
             
-            # Configure the mocked SMS service to fail for specific phone
             mock_sms_services.send_emergency_message.side_effect = mock_send_emergency_message
             
             response = client.post(f"/api/v1/users/{user.id}/sos/trigger", json=request_data)
             
             assert response.status_code == 200
             data = response.json()
-            assert data["success"] is True  # Partial success
-            assert data["contacts_notified"] == 2  # 2 out of 3 succeeded
+            assert data["success"] is True  
+            assert data["contacts_notified"] == 2
             assert len(data["failed_notifications"]) == 1
             assert "+1111111111" in data["failed_notifications"]
             assert "failed" in data["message"]
             
-            # Verify SMS service was called for each contact
             assert mock_sms_services.send_emergency_message.call_count == 3
 
     def test_trigger_sos_all_failed(self, client, test_db, mock_sms_services):
         """Test SOS trigger when all notifications fail"""
         user, session_token = self.create_authenticated_user(client, test_db)
         
-        # Mock emergency contacts
         mock_contacts = [
             MagicMock(phone="+1234567890", name="Contact 1"),
             MagicMock(phone="+0987654321", name="Contact 2")
@@ -265,7 +248,6 @@ class TestSOSAPI:
         with patch('src.services.emergency_contact_service.EmergencyContactService.get_contacts_by_user') as mock_get_contacts:
             mock_get_contacts.return_value = mock_contacts
             
-            # Configure all SMS calls to fail
             mock_sms_services.send_emergency_message.side_effect = mock_send_emergency_message
             
             response = client.post(f"/api/v1/users/{user.id}/sos/trigger", json=request_data)
@@ -277,14 +259,12 @@ class TestSOSAPI:
             assert len(data["failed_notifications"]) == 2
             assert "Failed to send SOS messages" in data["message"]
             
-            # Verify SMS service was called for each contact
             assert mock_sms_services.send_emergency_message.call_count == 2
 
     def test_trigger_sos_wrong_user(self, client, test_db, mock_sms_services):
         """Test SOS trigger for another user (should be forbidden)"""
         user1, session_token = self.create_authenticated_user(client, test_db, "User 1", "1111111111")
         
-        # Create another user
         user2_data = UserCreate(name="User 2", phone="2222222222", is_active=True)
         user2 = UserService.register_user(test_db, user2_data)
         
@@ -292,7 +272,6 @@ class TestSOSAPI:
             "location": "123 Emergency St, City, State"
         }
         
-        # Try to trigger SOS for user2 while logged in as user1
         response = client.post(f"/api/v1/users/{user2.id}/sos/trigger", json=request_data)
         
         assert response.status_code == 403
@@ -318,18 +297,16 @@ class TestSOSAPI:
         """Test SOS trigger without location (should still work)"""
         user, session_token = self.create_authenticated_user(client, test_db)
         
-        # Mock emergency contacts
         mock_contacts = [
             MagicMock(phone="+1234567890", name="Contact 1")
         ]
         
-        request_data = {}  # No location provided
+        request_data = {}  
         
         with patch('src.services.emergency_contact_service.EmergencyContactService.get_contacts_by_user') as mock_get_contacts:
           
             mock_get_contacts.return_value = mock_contacts
 
-            # SMS service is already mocked by the fixture
             mock_sms_services.send_emergency_message.return_value = {'success': True}
             
             response = client.post(f"/api/v1/users/{user.id}/sos/trigger", json=request_data)
@@ -339,7 +316,6 @@ class TestSOSAPI:
             assert data["success"] is True
             assert data["contacts_notified"] == 1
             
-            # Verify SMS service was called with None location
             mock_sms_services.send_emergency_message.assert_called_once()
             call_args = mock_sms_services.send_emergency_message.call_args
             assert call_args[1]["location"] is None
@@ -357,9 +333,8 @@ class TestUserAPIValidation:
         session_token = session_data["session_token"]
         client.cookies.set("session_token", session_token)
         
-        # Test with non-numeric user ID
         response = client.get("/api/v1/users/invalid_id")
-        assert response.status_code == 422  # Validation error
+        assert response.status_code == 422  
 
     def test_negative_user_id(self, client, test_db):
         """Test user endpoints with negative user ID"""
@@ -370,7 +345,5 @@ class TestUserAPIValidation:
         session_token = session_data["session_token"]
         client.cookies.set("session_token", session_token)
         
-        # Test with negative user ID
         response = client.get("/api/v1/users/-1")
-        assert response.status_code == 403  # Should be caught by ownership middleware
-
+        assert response.status_code == 403  

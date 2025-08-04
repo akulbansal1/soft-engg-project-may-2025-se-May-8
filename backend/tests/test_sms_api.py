@@ -16,7 +16,6 @@ from unittest.mock import patch, MagicMock
 @pytest.fixture(autouse=True)
 def mock_sms_service_imports():
     """Auto-mock SMS service imports to prevent real SMS operations"""
-    # Mock both the proxy object and the get_sms_service function for comprehensive coverage
     with patch('src.services.sms_service.sms_service') as mock_proxy, \
          patch('src.services.sms_service.get_sms_service') as mock_get_sms, \
          patch('src.api.auth.sms_service', create=True) as mock_auth_sms:
@@ -34,7 +33,6 @@ def mock_sms_service_imports():
         mock_get_sms.return_value = mock_sms_service
         mock_auth_sms.return_value = mock_sms_service
         
-        # Configure the proxy object itself to have the methods
         for attr in ['send_verification_code', 'verify_code', 'get_verification_status', 'send_emergency_message', 'is_phone_verified']:
             setattr(mock_proxy, attr, getattr(mock_sms_service, attr))
         
@@ -48,7 +46,6 @@ class TestSMSVerificationAPI:
         """Test successful SMS verification code sending"""
         request_data = {"phone": "+1234567890"}
         
-        # Configure the mocked service
         mock_sms_service_imports.send_verification_code.return_value = {
             'success': True,
             'message': 'Verification code sent successfully',
@@ -71,7 +68,7 @@ class TestSMSVerificationAPI:
         
         response = client.post("/api/v1/auth/sms/send", json=request_data)
         
-        assert response.status_code == 422  # Validation error
+        assert response.status_code == 422  
         data = response.json()
         assert "detail" in data
 
@@ -79,7 +76,6 @@ class TestSMSVerificationAPI:
         """Test SMS verification when service fails"""
         request_data = {"phone": "+1234567890"}
         
-        # Configure service to raise an exception
         mock_sms_service_imports.send_verification_code.side_effect = Exception("Service unavailable")
         
         response = client.post("/api/v1/auth/sms/send", json=request_data)
@@ -95,7 +91,6 @@ class TestSMSVerificationAPI:
             "code": "123456"
         }
         
-        # Configure the mocked service
         mock_sms_service_imports.verify_code.return_value = {
             'success': True,
             'message': 'Phone number successfully verified',
@@ -133,12 +128,11 @@ class TestSMSVerificationAPI:
 
     def test_verify_sms_code_missing_fields(self, client):
         """Test SMS verification with missing required fields"""
-        # Missing code field
         request_data = {"phone": "+1234567890"}
         
         response = client.post("/api/v1/auth/sms/verify", json=request_data)
         
-        assert response.status_code == 422  # Validation error
+        assert response.status_code == 422 
         data = response.json()
         assert "detail" in data
 
@@ -146,7 +140,6 @@ class TestSMSVerificationAPI:
         """Test getting SMS verification status for verified phone"""
         phone = "+1234567890"
         
-        # Configure the mocked service
         mock_sms_service_imports.get_verification_status.return_value = {
             'verified': True,
             'message': 'Phone number is verified',
@@ -167,7 +160,6 @@ class TestSMSVerificationAPI:
         """Test getting SMS verification status for unverified phone"""
         phone = "+1234567890"
         
-        # Configure the mocked service
         mock_sms_service_imports.get_verification_status.return_value = {
             'verified': False,
             'message': 'Phone number not verified',
@@ -186,7 +178,6 @@ class TestSMSVerificationAPI:
         """Test getting SMS verification status when service fails"""
         phone = "+1234567890"
         
-        # Configure service to raise an exception
         mock_sms_service_imports.get_verification_status.side_effect = Exception("Service error")
         
         response = client.get(f"/api/v1/auth/sms/status/{phone}")
@@ -210,7 +201,6 @@ class TestSMSAPIValidation:
         for phone in valid_phones:
             request_data = {"phone": phone}
             
-            # Configure the mocked service for each phone
             mock_sms_service_imports.send_verification_code.return_value = {
                 'success': True, 
                 'message': 'Sent', 
@@ -220,7 +210,6 @@ class TestSMSAPIValidation:
             response = client.post("/api/v1/auth/sms/send", json=request_data)
             assert response.status_code == 200, f"Valid phone {phone} should work"
             
-            # Reset mock to verify each call
             mock_sms_service_imports.send_verification_code.reset_mock()
 
     def test_phone_number_validation_invalid(self, client):
@@ -228,8 +217,8 @@ class TestSMSAPIValidation:
         invalid_phones = [
             "abc123",
             "+",
-            "123",  # Too short
-            "+123456789012345678",  # Too long
+            "123",  
+            "+123456789012345678",
             ""
         ]
         
@@ -243,11 +232,11 @@ class TestSMSAPIValidation:
         """Test verification code format validation"""
         request_data = {
             "phone": "+1234567890",
-            "code": ""  # Empty code
+            "code": ""
         }
         
         response = client.post("/api/v1/auth/sms/verify", json=request_data)
-        assert response.status_code == 422  # Validation error
+        assert response.status_code == 422 
 
 
 class TestSMSAPIRateLimit:
