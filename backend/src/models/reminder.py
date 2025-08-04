@@ -32,8 +32,8 @@ class Reminder(Base):
     message = Column(Text, nullable=True)
     scheduled_time = Column(DateTime, nullable=False, index=True)
     status = Column(Enum(ReminderStatus), default=ReminderStatus.PENDING, nullable=False, index=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=datetime.now, nullable=False)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now, nullable=False)
     is_active = Column(Boolean, default=True, nullable=False, index=True)
 
     # Relationships

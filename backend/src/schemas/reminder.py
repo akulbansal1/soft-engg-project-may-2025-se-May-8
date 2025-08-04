@@ -2,18 +2,7 @@ from pydantic import BaseModel, Field
 from typing import Optional
 import datetime
 from enum import Enum
-
-class ReminderType(str, Enum):
-    """Enum for reminder types."""
-    APPOINTMENT = "appointment"
-    MEDICINE = "medicine"
-
-class ReminderStatus(str, Enum):
-    """Enum for reminder status."""
-    PENDING = "pending"
-    SENT = "sent"
-    FAILED = "failed"
-    CANCELLED = "cancelled"
+from src.models.reminder import ReminderType, ReminderStatus
 
 class ReminderBase(BaseModel):
     """Base schema for reminder details."""

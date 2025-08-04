@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time
 from src.models.reminder import Reminder, ReminderType, ReminderStatus
 from src.models.appointment import Appointment
 from src.models.medicine import Medicine
@@ -43,7 +43,7 @@ class ReminderService:
     @staticmethod
     def get_due_reminders(db: Session, limit: int = 100) -> List[Reminder]:
         """Get all reminders that are due (scheduled time has passed and status is pending)."""
-        current_time = datetime.utcnow()
+        current_time = datetime.now()
         return db.query(Reminder).filter(
             Reminder.scheduled_time <= current_time,
             Reminder.status == ReminderStatus.PENDING,
@@ -53,7 +53,7 @@ class ReminderService:
     @staticmethod
     def get_upcoming_reminders(db: Session, user_id: int, hours_ahead: int = 24) -> List[Reminder]:
         """Get reminders scheduled within the next X hours for a user."""
-        current_time = datetime.utcnow()
+        current_time = datetime.now()
         future_time = current_time + timedelta(hours=hours_ahead)
         
         return db.query(Reminder).filter(
@@ -73,7 +73,7 @@ class ReminderService:
         for field, value in reminder_in.model_dump(exclude_unset=True).items():
             setattr(reminder, field, value)
         
-        reminder.updated_at = datetime.utcnow()
+        reminder.updated_at = datetime.now()
         db.commit()
         db.refresh(reminder)
         return reminder
@@ -96,7 +96,7 @@ class ReminderService:
             return None
         
         reminder.status = ReminderStatus.SENT
-        reminder.updated_at = datetime.utcnow()
+        reminder.updated_at = datetime.now()
         db.commit()
         db.refresh(reminder)
         return reminder
@@ -109,7 +109,7 @@ class ReminderService:
             return None
         
         reminder.status = ReminderStatus.FAILED
-        reminder.updated_at = datetime.utcnow()
+        reminder.updated_at = datetime.now()
         db.commit()
         db.refresh(reminder)
         return reminder
@@ -123,7 +123,7 @@ class ReminderService:
         
         reminder.status = ReminderStatus.CANCELLED
         reminder.is_active = False
-        reminder.updated_at = datetime.utcnow()
+        reminder.updated_at = datetime.now()
         db.commit()
         db.refresh(reminder)
         return reminder
@@ -199,13 +199,11 @@ class ReminderService:
         if not appointment:
             return []
         
-        # Combine appointment date and time
         appointment_datetime = datetime.combine(appointment.date, appointment.time)
         
         reminders = []
         for offset in reminder_offsets:
             reminder_time = appointment_datetime - offset
-            # Only create reminder if it's in the future
             if reminder_time > datetime.now():
                 reminder = ReminderService.create_appointment_reminder(
                     db, appointment_id, reminder_time
@@ -227,52 +225,74 @@ class ReminderService:
         if not medicine:
             return []
 
-        ## TODO: Implement frequency parsing using genAI
-     
-        # Parse frequency to determine how often to remind
-        # This is a simplified implementation - you might want to make this more sophisticated
-        frequency_map = {
-            "once daily": timedelta(days=1),
-            "twice daily": timedelta(hours=12),
-            "three times daily": timedelta(hours=8),
-            "four times daily": timedelta(hours=6),
-            "every 8 hours": timedelta(hours=8),
-            "every 12 hours": timedelta(hours=12),
-            "weekly": timedelta(days=7),
+        frequency_patterns = {
+            "once daily": {
+                "interval": timedelta(days=1),
+                "times_per_day": [time(9, 0)]  # 9:00 AM
+            },
+            "twice daily": {
+                "interval": timedelta(days=1),
+                "times_per_day": [time(9, 0), time(21, 0)]  # 9 AM, 9 PM
+            },
+            "three times daily": {
+                "interval": timedelta(days=1),
+                "times_per_day": [time(8, 0), time(14, 0), time(20, 0)]  # 8 AM, 2 PM, 8 PM
+            },
+            "four times daily": {
+                "interval": timedelta(days=1),
+                "times_per_day": [time(8, 0), time(13, 0), time(18, 0), time(22, 0)]  # 8 AM, 1 PM, 6 PM, 10 PM
+            },
+            "every 8 hours": {
+                "interval": timedelta(hours=8),
+                "times_per_day": [time(8, 0), time(16, 0), time(0, 0)]  # 8 AM, 4 PM, midnight
+            },
+            "every 12 hours": {
+                "interval": timedelta(days=1),
+                "times_per_day": [time(9, 0), time(21, 0)]  # 9 AM, 9 PM
+            },
+            "weekly": {
+                "interval": timedelta(days=7),
+                "times_per_day": [time(10, 0)]  # 10:00 AM once a week
+            },
         }
         
         frequency_lower = medicine.frequency.lower()
-        reminder_interval = None
+        pattern = None
         
-        for key, interval in frequency_map.items():
+        for key, freq_pattern in frequency_patterns.items():
             if key in frequency_lower:
-                reminder_interval = interval
+                pattern = freq_pattern
                 break
         
-        if not reminder_interval:
-            # Default to daily if frequency not recognized
-            reminder_interval = timedelta(days=1)
+        if not pattern:
+            pattern = {
+                "interval": timedelta(days=1),
+                "times_per_day": [time(9, 0)]
+            }
         
-        # Use provided dates or medicine dates
-        start = start_date or datetime.combine(medicine.start_date, datetime.min.time())
-        end = end_date or (datetime.combine(medicine.end_date, datetime.max.time()) if medicine.end_date else start + timedelta(days=30))
+        start_date_only = start_date.date() if start_date else medicine.start_date
+        end_date_only = end_date.date() if end_date else (medicine.end_date if medicine.end_date else start_date_only + timedelta(days=30))
         
         reminders = []
-        current_time = start
-        
-        # Limit to prevent creating too many reminders
-        max_reminders = 100
+        current_date = start_date_only
+        max_reminders = 200  
         count = 0
         
-        while current_time <= end and count < max_reminders:
-            if current_time > datetime.now():  # Only create future reminders
-                reminder = ReminderService.create_medicine_reminder(
-                    db, medicine_id, current_time
-                )
-                if reminder:
-                    reminders.append(reminder)
+        while current_date <= end_date_only and count < max_reminders:
+            for reminder_time in pattern["times_per_day"]:
+                reminder_datetime = datetime.combine(current_date, reminder_time)
+                
+                if reminder_datetime > datetime.now():
+                    reminder = ReminderService.create_medicine_reminder(
+                        db, medicine_id, reminder_datetime
+                    )
+                    if reminder:
+                        reminders.append(reminder)
+                        count += 1
             
-            current_time += reminder_interval
-            count += 1
+            if pattern["interval"].days >= 1:
+                current_date += timedelta(days=pattern["interval"].days)
+            else:
+                current_date += timedelta(days=1)
         
         return reminders

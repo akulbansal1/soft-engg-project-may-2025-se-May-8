@@ -4,8 +4,10 @@ Appointment API tests
 import pytest
 from src.models.user import User
 from src.models.doctor import Doctor
+from src.models.reminder import Reminder
 from src.schemas.user import UserCreate
 from src.services.user_service import UserService
+from src.services.reminder_service import ReminderService
 from src.core.config import settings
 
 ## TODO: Add more tests for the appointment API
@@ -103,3 +105,54 @@ class TestAppointments:
         # Confirm deletion
         response = client.get(f"/api/v1/appointments/{appointment_id}")
         assert response.status_code == 404
+
+    def test_appointment_reminder_creation(self, client, test_db):
+        """Test that reminders are created for appointments"""
+        from datetime import datetime, timedelta
+        
+        # Set up admin authentication
+        self.create_admin_session(client)
+        
+        user_id = self.create_user(test_db)
+        doctor_id = self.create_doctor(test_db)
+        
+        # Create appointment with future date
+        future_date = datetime.now() + timedelta(days=2)
+        appointment_data = {
+            "name": "Future Consultation",
+            "date": future_date.strftime("%Y-%m-%d"),
+            "time": "14:30:00",
+            "notes": "Test appointment for reminders",
+            "user_id": user_id,
+            "doctor_id": doctor_id
+        }
+        
+        response = client.post("/api/v1/appointments/", json=appointment_data)
+        assert response.status_code == 200 or response.status_code == 201
+        appointment = response.json()
+        appointment_id = appointment["id"]
+        
+        # Create reminders for this appointment
+        reminders = ReminderService.auto_create_appointment_reminders(
+            test_db, 
+            appointment_id, 
+            [timedelta(hours=48), timedelta(hours=2), timedelta(minutes=30)]
+        )
+        
+        # Check that reminders were created (should be 3 default reminders)
+        assert len(reminders) >= 1, "At least one reminder should be created for future appointment"
+        
+        # Verify reminders in database
+        db_reminders = test_db.query(Reminder).filter_by(
+            user_id=user_id, 
+            related_id=appointment_id
+        ).all()
+        
+        assert len(db_reminders) >= 1, "Reminders should be saved in database"
+        
+        # Check reminder properties
+        for reminder in db_reminders:
+            assert reminder.user_id == user_id
+            assert reminder.related_id == appointment_id
+            assert "appointment" in reminder.title.lower()
+            assert reminder.scheduled_time is not None

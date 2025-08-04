@@ -15,7 +15,6 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('reminder_scheduler.log'),
         logging.StreamHandler()
     ]
 )
@@ -89,7 +88,7 @@ class ReminderScheduler:
         db: Session = next(db_gen)
         
         try:
-            cutoff_date = datetime.utcnow() - timedelta(days=settings.REMINDER_CLEANUP_DAYS)
+            cutoff_date = datetime.now() - timedelta(days=settings.REMINDER_CLEANUP_DAYS)
             logger.info(f"Would clean up reminders older than {cutoff_date}")
             
         except Exception as e:
@@ -107,14 +106,14 @@ class ReminderScheduler:
         self.running = True
         
         def run_scheduler() -> None:
-            last_cleanup = datetime.utcnow()
-            check_interval_seconds = settings.REMINDER_CHECK_INTERVAL_MINUTES * 60
+            last_cleanup = datetime.now()
+            check_interval_seconds = int(settings.REMINDER_CHECK_INTERVAL_MINUTES * 60)
             
             while self.running:
                 try:
                     self.process_due_reminders()
                     
-                    now = datetime.utcnow()
+                    now = datetime.now()
                     if (now - last_cleanup).days >= 1 and now.hour == settings.REMINDER_CLEANUP_HOUR:
                         self.cleanup_old_reminders()
                         last_cleanup = now

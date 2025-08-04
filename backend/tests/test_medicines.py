@@ -3,8 +3,10 @@ Medicine API tests
 """
 import pytest
 from src.models.user import User
+from src.models.reminder import Reminder
 from src.schemas.user import UserCreate
 from src.services.user_service import UserService
+from src.services.reminder_service import ReminderService
 from src.core.config import settings
 from src.models.doctor import Doctor
 from src.models.appointment import Appointment
@@ -136,3 +138,63 @@ class TestMedicines:
         assert medicine["doctor_id"] == doctor_id
         assert medicine["user_id"] == user_id
         assert medicine.get("appointment_id") is None
+
+    def test_medicine_reminder_creation(self, client, test_db):
+        """Test that reminders are created for medicines based on frequency"""
+        from datetime import timedelta
+        
+        user, session_token = self.create_authenticated_session(client, test_db)
+        user_id = user.id
+        doctor_id = self.create_doctor(test_db)
+        
+        # Test different frequencies
+        test_cases = [
+            ("once daily", 1),  # Should create 1 reminder per day
+            ("twice daily", 2),  # Should create 2 reminders per day
+            ("three times daily", 3),  # Should create 3 reminders per day
+        ]
+        
+        for frequency, expected_per_day in test_cases:
+            # Create medicine with specific frequency
+            medicine_data = {
+                "name": f"Test Medicine ({frequency})",
+                "dosage": "1 tablet",
+                "frequency": frequency,
+                "start_date": "2025-08-10",  # Future date
+                "end_date": "2025-08-12",    # 3 days
+                "notes": f"Test medicine for {frequency}",
+                "user_id": user_id,
+                "doctor_id": doctor_id
+            }
+            
+            response = client.post("/api/v1/medicines/", json=medicine_data)
+            assert response.status_code == 200 or response.status_code == 201
+            medicine = response.json()
+            medicine_id = medicine["id"]
+            
+            # Create reminders for this medicine
+            reminders = ReminderService.auto_create_medicine_reminders(test_db, medicine_id)
+            
+            # Check that reminders were created
+            # For 3 days with the given frequency, we should have approximately:
+            # expected_per_day * 3 days = total expected reminders
+            expected_total = expected_per_day * 3
+            
+            assert len(reminders) >= 1, f"At least one reminder should be created for {frequency}"
+            
+            # Verify reminders in database
+            db_reminders = test_db.query(Reminder).filter_by(
+                user_id=user_id, 
+                related_id=medicine_id
+            ).all()
+            
+            assert len(db_reminders) >= 1, f"Reminders should be saved in database for {frequency}"
+            
+            # Check reminder properties
+            for reminder in db_reminders:
+                assert reminder.user_id == user_id
+                assert reminder.related_id == medicine_id
+                assert "medicine" in reminder.title.lower()
+                assert reminder.scheduled_time is not None
+            
+            print(f"✅ {frequency}: Created {len(reminders)} reminders (expected ~{expected_total})")

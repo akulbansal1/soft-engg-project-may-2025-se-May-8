@@ -61,8 +61,7 @@ app = FastAPI(
         "name": "MIT License"
     },
 )
-## TODO: Uncomment this when using lifespan
-# lifespan=lifespan
+lifespan=lifespan
 
 # Add CORS middleware
 app.add_middleware(
