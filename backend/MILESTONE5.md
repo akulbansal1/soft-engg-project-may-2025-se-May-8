@@ -4,6 +4,15 @@
 
 This milestone focuses on comprehensive testing of our backend APIs for the senior citizen healthcare application. We developed and executed a complete test suite covering all 5 main API endpoints: appointments, doctors, emergency contacts, medicines, and documents.
 
+## Instructions for Testing
+
+To run the complete test suite, follow these steps:
+
+```bash
+# Use test script
+./run_tests.sh
+```
+
 ## Testing Setup
 
 We used pytest as our main testing tool. The tests use FastAPI's TestClient to simulate API requests. We set up a temporary SQLite database for each test run, so everything gets cleaned up automatically. Authentication is tested using both admin and regular user sessions. For things like S3 storage, SMS, and AI, we use comprehensive mocks to avoid calling real external services. In total, there are 250 test cases covering eight main API endpoints (appointments, doctors, emergency contacts, medicines, documents, authentication, users, SMS) plus extensive service layer and infrastructure testing.
@@ -25,22 +34,22 @@ We used pytest as our main testing tool. The tests use FastAPI's TestClient to s
 - test_delete_appointment_and_verify_gone: Success
 - test_appointment_complete_workflow: Success
 
-### Doctors API (12 tests - 8 Passed, 4 Failed)
+### Doctors API (12 tests - 11 Passed, 1 Failed)
 
 - test_create_doctor_admin_authorized: Success
 - test_create_doctor_missing_required_fields: Success
-- test_create_doctor_patient_unauthorized: **Failed** (Security issue found)
+- test_create_doctor_patient_unauthorized: Success
 - test_create_doctor_no_authentication: Success
 - test_get_all_doctors_authenticated_users_only: Success
 - test_get_all_doctors_unauthenticated_denied: **Failed** (Critical security vulnerability)
 - test_get_doctor_by_id_authenticated_users_only: Success
 - test_get_doctor_by_id_nonexistent: Success
 - test_update_doctor_admin_authorized: Success
-- test_update_doctor_patient_unauthorized: **Failed** (Security issue found)
-- test_delete_doctor_patient_unauthorized: **Failed** (Security issue found)
+- test_update_doctor_patient_unauthorized: Success
+- test_delete_doctor_patient_unauthorized: Success
 - test_doctor_complete_admin_workflow: Success
 
-### Emergency Contacts API (11 tests - 9 Passed, 2 Failed)
+### Emergency Contacts API (10 tests - 8 Passed, 2 Failed)
 
 - test_create_emergency_contact_valid_data: Success
 - test_create_emergency_contact_missing_required_fields: Success
@@ -53,7 +62,7 @@ We used pytest as our main testing tool. The tests use FastAPI's TestClient to s
 - test_sos_trigger_no_emergency_contacts: Success
 - test_sos_trigger_sms_service_fails: **Failed** (Twilio configuration issue)
 
-### Medicines API (20 tests - 17 Passed, 3 Failed)
+### Medicines API (17 tests - 16 Passed, 1 Failed)
 
 - test_create_medicine_valid_data_authenticated: Success
 - test_create_medicine_missing_required_fields: Success
@@ -65,14 +74,13 @@ We used pytest as our main testing tool. The tests use FastAPI's TestClient to s
 - test_update_medicine_unauthorized: Success
 - test_delete_medicine_and_verify_gone: Success
 - test_medicine_complete_workflow: Success
-- test_transcribe_audio_prescription_success: **Failed** (AI service config)
+- test_transcribe_audio_prescription_success: Success
 - test_transcribe_audio_prescription_unauthorized: Success
 - test_transcribe_invalid_file_format: Success
 - test_transcribe_no_file_provided: Success
-- test_transcribe_empty_audio_file: **Failed** (AI service edge case)
+- test_transcribe_empty_audio_file: Success
 - test_transcribe_ai_service_failure: Success
 - test_transcribe_partial_medicine_info: Success
-- test_transcribe_different_audio_formats: **Failed** (AI service config)
 
 ### Documents API (23 tests - All Passed)
 
@@ -100,7 +108,7 @@ We used pytest as our main testing tool. The tests use FastAPI's TestClient to s
 - test_upload_file_size_validation: Success
 - test_upload_unsupported_file_types: Success
 
-### Authentication API (21 tests - 18 Passed, 3 Failed)
+### Authentication API (22 tests - 19 Passed, 3 Failed)
 
 - test_create_registration_challenge_existing_inactive_user: Success
 - test_create_registration_challenge_existing_active_user: Success
@@ -587,15 +595,6 @@ def test_passkey_registration_verification_with_real_webauthn_data(self, client,
 ### Status Code Inconsistencies
 
 5. **Authorization vs Authentication**: Some endpoints return 403 instead of 401 for unauthorized access
-
-## Instructions for Testing
-
-To run the complete test suite, follow these steps:
-
-```bash
-# Use test script
-./run_tests.sh
-```
 
 ## Summary
 
