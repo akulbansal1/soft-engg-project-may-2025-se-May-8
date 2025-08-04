@@ -129,7 +129,7 @@ const OTPPage: React.FC = () => {
         },
       };
 
-
+      localStorage.setItem("credential_id", JSON.stringify(credential.id));
 
       const verifyRes = await fetch("/api/v1/auth/passkey/register/verify", {
         method: "POST",
