@@ -20,7 +20,6 @@ import {
   User,
   Phone,
   ScanFace,
-  PhoneCallIcon,
   UserCheck2Icon,
   UserPlus2,
 } from "lucide-react";
@@ -28,13 +27,14 @@ import { format } from "date-fns";
 import * as yup from "yup";
 import { useNavigate } from "react-router-dom";
 import BackgroundAnimation from "@/components/BackgroundAnimation";
+import { decodeFirst } from "cbor-web";
 
 // ✅ Yup Schemas
 
 const phoneValidation = yup
   .string()
   .required("Phone number is required")
-  .matches(/^\d+$/, "Phone number must contain only digits");
+  .matches(/^\+?\d+$/, "Phone number must contain only digits");
 
 export const signInSchema = yup.object({
   phone: phoneValidation,
@@ -68,19 +68,115 @@ const AuthenticationPage: React.FC = () => {
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSignInError("");
+    if (!signInPhone || !signInPhone.match(/^\+?\d+$/)) {
+      setSignInError("Please enter a valid phone number.");
+      return;
+    }
+
+    const credentialId = localStorage.getItem("credential_id");
+
+    if (!credentialId) {
+      throw new Error("Credential ID not found in localStorage.");
+    }
+
+    const validData = { credential_id: credentialId };
+
+    console.log(validData);
+
     try {
-      const validData = await signInSchema.validate(
-        { phone: signInPhone },
-        { abortEarly: false }
-      );
-      console.log("Sign-in data:", validData);
-      setSignInError("");
-      navigate("/otp"); // Redirect on valid input
-    } catch (err: any) {
-      if (err.errors && err.errors[0]) {
-        setSignInError(err.errors[0]);
+      const challengeRes = await fetch("/api/v1/auth/passkey/login/challenge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(validData),
+      });
+
+      if (!challengeRes.ok) {
+        throw new Error("Failed to get passkey challenge");
       }
-      console.log("Sign-in validation error:", err);
+
+      const challengeData = await challengeRes.json();
+
+      function base64urlToBase64(input: string): string {
+        input = input.replace(/-/g, "+").replace(/_/g, "/");
+        const pad = input.length % 4;
+        if (pad) input += "=".repeat(4 - pad);
+        return input;
+      }
+
+      function base64urlToUint8Array(base64url: string): Uint8Array {
+        const base64 = base64url.replace(/-/g, "+").replace(/_/g, "/");
+        const pad = base64.length % 4;
+        const padded = base64 + (pad ? "=".repeat(4 - pad) : "");
+
+        const binaryString = atob(padded);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        return bytes;
+      }
+
+      const publicKeyOptions: PublicKeyCredentialRequestOptions = {
+        challenge: Uint8Array.from(atob(challengeData.challenge), (c) =>
+          c.charCodeAt(0)
+        ),
+        allowCredentials: [
+          {
+            id: base64urlToUint8Array(credentialId),
+            type: "public-key",
+          },
+        ],
+        timeout: challengeData.timeout || 60000,
+        rpId: "localhost", // Should match what server expects
+      };
+
+      const assertion = (await navigator.credentials.get({
+        publicKey: publicKeyOptions,
+      })) as PublicKeyCredential;
+
+      const authResponse = assertion.response as AuthenticatorAssertionResponse;
+
+      // 4. Extract binary data & convert to base64
+      const credentialData = {
+        request: {
+          credential_id: credentialId,
+        },
+        response_data: {
+          credential_id: credentialId,
+          signature: btoa(
+            String.fromCharCode(...new Uint8Array(authResponse.signature))
+          ),
+          client_data_json: btoa(
+            String.fromCharCode(...new Uint8Array(authResponse.clientDataJSON))
+          ),
+          authenticator_data: btoa(
+            String.fromCharCode(
+              ...new Uint8Array(authResponse.authenticatorData)
+            )
+          ),
+          sign_count: 1,
+        },
+      };
+      console.log("Credential Data:", credentialData);
+      const verifyRes = await fetch("/api/v1/auth/passkey/login/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(credentialData),
+      });
+
+      if (!verifyRes.ok) {
+        const errorData = await verifyRes.json();
+        console.error("Passkey verification error:", errorData);
+        throw new Error("Passkey verification failed");
+      }
+
+      const result = await verifyRes.json();
+      console.log("✅ Passkey registered successfully:", result);
+      navigate("/home");
+    } catch (err: any) {
+      setSignInError(err.message || "Something went wrong.");
+      console.error("❌ Registration error:", err);
     }
   };
 
@@ -88,22 +184,71 @@ const AuthenticationPage: React.FC = () => {
     e.preventDefault();
     setLoading(true);
     setSignupErrors({});
+    if (!signupData.firstName) {
+      setSignupErrors((prev) => ({
+        ...prev,
+        firstName: "First name is required",
+      }));
+    }
+    if (!signupData.lastName) {
+      setSignupErrors((prev) => ({
+        ...prev,
+        lastName: "Last name is required",
+      }));
+    }
+    if (!signupData.phone) {
+      setSignupErrors((prev) => ({
+        ...prev,
+        phone: "Phone number is required",
+      }));
+    }
+    if (!signupData.dob) {
+      setSignupErrors((prev) => ({
+        ...prev,
+        dob: "Date of birth is required",
+      }));
+    }
+    if (!signupData.gender) {
+      setSignupErrors((prev) => ({
+        ...prev,
+        gender: "Gender is required",
+      }));
+    }
+
+    if (
+      !signupData.firstName ||
+      !signupData.lastName ||
+      !signupData.phone ||
+      !signupData.dob ||
+      !signupData.gender
+    ) {
+      setLoading(false);
+      return;
+    }
+
     try {
-      const validData = await signupSchema.validate(signupData, {
-        abortEarly: false,
+      // Send POST request to backend API
+      const response = await fetch("/api/v1/auth/sms/send", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ phone: signupData.phone }), // Include '+' if not already present
       });
-      console.log("Validated signup data:", validData);
-      navigate("/otp");
-    } catch (err: any) {
-      if (err.inner) {
-        const fieldErrors: { [key: string]: string } = {};
-        err.inner.forEach((validationErr: any) => {
-          if (validationErr.path)
-            fieldErrors[validationErr.path] = validationErr.message;
-        });
-        setSignupErrors(fieldErrors);
-        console.log("Signup validation errors:", fieldErrors);
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to send OTP.");
       }
+
+      navigate("/otp", { state: { user_info: signupData } });
+    } catch (err: any) {
+      if (err.name === "ValidationError" && err.errors?.[0]) {
+        setSignupErrors(err.errors[0]);
+      } else {
+        setSignupErrors(err.message || "An unexpected error occurred.");
+      }
+      console.log("OTP API error:", err);
     } finally {
       setLoading(false);
     }
@@ -179,19 +324,9 @@ const AuthenticationPage: React.FC = () => {
                   )}
 
                   <div className="flex flex-col mt-5">
-                    <Button
-                      type="submit"
-                      className="flex-1 h-12 rounded-xl"
-                    >
-                      <PhoneCallIcon className="w-4 h-4 mr-2" /> Get OTP
-                    </Button>
-                    <span className="text-center text-sm mt-1 mb-1">or</span>
-                    <Button
-                      type="button"
-                      className="flex-1 h-12 rounded-xl"
-                      onClick={() => navigate("/face-id")}
-                    >
-                      <ScanFace className="w-4 h-4 mr-2" />Login with Face ID
+                    <Button type="submit" className="flex-1 h-12 rounded-xl">
+                      <ScanFace className="w-4 h-4 mr-2" />
+                      Login with Face ID
                     </Button>
                   </div>
                 </form>
@@ -304,9 +439,9 @@ const AuthenticationPage: React.FC = () => {
                         <SelectValue placeholder="Select Gender" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="male">Male</SelectItem>
-                        <SelectItem value="female">Female</SelectItem>
-                        <SelectItem value="other">Other</SelectItem>
+                        <SelectItem value="Male">Male</SelectItem>
+                        <SelectItem value="Female">Female</SelectItem>
+                        <SelectItem value="Other">Other</SelectItem>
                         <SelectItem value="prefer_not_say">
                           Prefer not to say
                         </SelectItem>
