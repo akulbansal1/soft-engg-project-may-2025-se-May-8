@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { CgDarkMode } from "react-icons/cg";
+import { Toaster } from "@/components/ui/sonner"; // Import the Toaster
 import WelcomePage from "./pages/WelcomePage";
 import Authentication from "./pages/Authentication";
 import OTPPage from "./pages/OTPPage";
@@ -68,6 +69,7 @@ const App: React.FC = () => {
             </Route>
           </Routes>
         </main>
+        <Toaster richColors position="top-right" />
       </div>
     </BrowserRouter>
   );
