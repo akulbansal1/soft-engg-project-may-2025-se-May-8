@@ -2,7 +2,13 @@ import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Pencil, Trash2, PlusCircle, Search, ArrowLeft } from "lucide-react";
+import {
+  Pencil,
+  Trash2,
+  PlusCircle,
+  ArrowLeft,
+  AlertTriangle,
+} from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -16,6 +22,7 @@ import { useNavigate } from "react-router-dom";
 import * as yup from "yup";
 import { useAuth } from "@/context/AuthContext";
 import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
 
 const BASE_URL = "/api/v1"; // Use the proxy
 
@@ -42,15 +49,19 @@ const EmergencyContactsPage: React.FC = () => {
   const { user } = useAuth();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
   const [modalOpen, setModalOpen] = useState(false);
   const [editContact, setEditContact] = useState<Contact | null>(null);
+
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [contactToDelete, setContactToDelete] = useState<Contact | null>(null);
+
   const [form, setForm] = useState<Omit<Contact, "id">>({
     name: "",
     relation: "",
     phone: "",
   });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
-  const [searchTerm, setSearchTerm] = useState("");
   const navigate = useNavigate();
 
   // READ: Fetch contacts when the component mounts
@@ -63,7 +74,10 @@ const EmergencyContactsPage: React.FC = () => {
           return res.json();
         })
         .then((data: Contact[]) => setContacts(data))
-        .catch((err) => console.error("Fetch contacts error:", err))
+        .catch((err) => {
+          console.error("Fetch contacts error:", err);
+          toast.error("Could not load your contacts.");
+        })
         .finally(() => setIsLoading(false));
     }
   }, [user]);
@@ -115,15 +129,15 @@ const EmergencyContactsPage: React.FC = () => {
       }
 
       if (editContact) {
-        // UPDATE state
         const updatedContact = await res.json();
         setContacts((prev) =>
           prev.map((c) => (c.id === editContact.id ? updatedContact : c))
         );
+        toast.info("Contact updated successfully!");
       } else {
-        // CREATE state
         const newContact = await res.json();
         setContacts((prev) => [...prev, newContact]);
+        toast.success("Contact added successfully!");
       }
       setModalOpen(false);
     } catch (err: any) {
@@ -135,38 +149,39 @@ const EmergencyContactsPage: React.FC = () => {
         setFormErrors(errors);
       } else {
         console.error("Save error:", err);
-        setFormErrors({ form: err.message || "An unexpected error occurred." });
+        toast.error("Failed to save contact", { description: err.message });
       }
     }
   };
 
-  const handleDelete = async (id: number) => {
-    if (!user) return;
+  const openDeleteConfirm = (contact: Contact) => {
+    setContactToDelete(contact);
+    setConfirmDeleteOpen(true);
+  };
+
+  const handleDelete = async () => {
+    if (!user || !contactToDelete) return;
     try {
-      const res = await fetch(`${BASE_URL}/emergency-contacts/${id}`, {
-        method: "DELETE",
-      });
+      const res = await fetch(
+        `${BASE_URL}/emergency-contacts/${contactToDelete.id}`,
+        {
+          method: "DELETE",
+        }
+      );
 
       if (!res.ok) {
         const errDetail = await res.json();
         throw new Error(errDetail.detail || "Failed to delete contact");
       }
-      // DELETE from state
-      setContacts((prev) => prev.filter((c) => c.id !== id));
-    } catch (err) {
+      setContacts((prev) => prev.filter((c) => c.id !== contactToDelete.id));
+      toast.success(`"${contactToDelete.name}" was deleted.`);
+      setConfirmDeleteOpen(false);
+      setContactToDelete(null);
+    } catch (err: any) {
       console.error("Delete error:", err);
+      toast.error("Deletion failed", { description: err.message });
     }
   };
-
-  const filteredContacts = contacts.filter((c) => {
-    const name = c.name?.toLowerCase() || "";
-    const relation = c.relation?.toLowerCase() || "";
-    const phone = c.phone || "";
-    const term = searchTerm.toLowerCase();
-    return (
-      name.includes(term) || relation.includes(term) || phone.includes(term)
-    );
-  });
 
   const SkeletonLoader = () => (
     <div className="space-y-4 pt-4">
@@ -207,26 +222,11 @@ const EmergencyContactsPage: React.FC = () => {
         </Button>
       </div>
 
-      <div className="relative">
-        <Search
-          className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-          size={16}
-        />
-        <Input
-          placeholder="Search contacts..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="pl-10"
-        />
-      </div>
-
       <Card className="flex-1 flex flex-col overflow-hidden bg-transparent">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             Contacts
-            {!isLoading && (
-              <Badge variant="secondary">{filteredContacts.length}</Badge>
-            )}
+            {!isLoading && <Badge variant="secondary">{contacts.length}</Badge>}
           </CardTitle>
         </CardHeader>
         <CardContent className="flex-1 overflow-hidden">
@@ -237,13 +237,9 @@ const EmergencyContactsPage: React.FC = () => {
               <div className="text-center py-8 text-muted-foreground">
                 <p>No contacts found. Add one to get started.</p>
               </div>
-            ) : filteredContacts.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <p>No matching contacts found.</p>
-              </div>
             ) : (
               <div className="space-y-4">
-                {filteredContacts.map((contact) => (
+                {contacts.map((contact) => (
                   <Card key={contact.id} className="p-4">
                     <div className="flex justify-between items-center">
                       <div>
@@ -266,7 +262,7 @@ const EmergencyContactsPage: React.FC = () => {
                         <Button
                           variant="destructive"
                           size="icon"
-                          onClick={() => handleDelete(contact.id)}
+                          onClick={() => openDeleteConfirm(contact)}
                         >
                           <Trash2 size={16} />
                         </Button>
@@ -280,14 +276,15 @@ const EmergencyContactsPage: React.FC = () => {
         </CardContent>
       </Card>
 
+      {/* Add/Edit Dialog */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {editContact ? "Edit Contact" : "Add Contact"}
+              {editContact ? "Edit Contact" : "Add New Contact"}
             </DialogTitle>
             <DialogDescription>
-              Fill in the emergency contact details.
+              Fill in the details for the emergency contact.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
@@ -305,7 +302,7 @@ const EmergencyContactsPage: React.FC = () => {
             <div>
               <Input
                 name="relation"
-                placeholder="Relation"
+                placeholder="Relation (e.g., Spouse, Son)"
                 value={form.relation}
                 onChange={handleChange}
               />
@@ -318,7 +315,7 @@ const EmergencyContactsPage: React.FC = () => {
             <div>
               <Input
                 name="phone"
-                placeholder="Phone"
+                placeholder="Phone Number"
                 value={form.phone}
                 onChange={handleChange}
               />
@@ -326,11 +323,6 @@ const EmergencyContactsPage: React.FC = () => {
                 <p className="text-xs text-red-500 mt-1">{formErrors.phone}</p>
               )}
             </div>
-            {formErrors.form && (
-              <p className="text-sm text-red-500 text-center">
-                {formErrors.form}
-              </p>
-            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setModalOpen(false)}>
@@ -338,6 +330,37 @@ const EmergencyContactsPage: React.FC = () => {
             </Button>
             <Button onClick={handleSave}>
               {editContact ? "Save Changes" : "Add Contact"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="text-destructive" /> Are you sure?
+            </DialogTitle>
+            <DialogDescription>
+              This action cannot be undone. This will permanently delete the
+              contact
+              <span className="font-semibold text-foreground">
+                {" "}
+                "{contactToDelete?.name}"
+              </span>
+              .
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setConfirmDeleteOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleDelete}>
+              Yes, delete contact
             </Button>
           </DialogFooter>
         </DialogContent>
