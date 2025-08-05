@@ -9,7 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { CheckCircle2 } from "lucide-react";
 import { motion } from "framer-motion";
-import {decodeFirst} from "cbor-web";
+import { decodeFirst } from "cbor-web";
 
 const OTPPage: React.FC = () => {
   const navigate = useNavigate();
@@ -74,11 +74,14 @@ const OTPPage: React.FC = () => {
         user_gender: validData.gender,
       };
 
-      const challengeRes = await fetch("/api/v1/auth/passkey/register/challenge", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(userData),
-      });
+      const challengeRes = await fetch(
+        "/api/v1/auth/passkey/register/challenge",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(userData),
+        }
+      );
 
       if (!challengeRes.ok) {
         throw new Error("Failed to get passkey challenge");
@@ -87,10 +90,14 @@ const OTPPage: React.FC = () => {
       const challengeData = await challengeRes.json();
 
       const publicKeyOptions: PublicKeyCredentialCreationOptions = {
-        challenge: Uint8Array.from(atob(challengeData.challenge), (c) => c.charCodeAt(0)),
+        challenge: Uint8Array.from(atob(challengeData.challenge), (c) =>
+          c.charCodeAt(0)
+        ),
         rp: challengeData.rp,
         user: {
-          id: Uint8Array.from(atob(challengeData.user.id), (c) => c.charCodeAt(0)),
+          id: Uint8Array.from(atob(challengeData.user.id), (c) =>
+            c.charCodeAt(0)
+          ),
           name: challengeData.user.name,
           displayName: challengeData.user.display_name,
         },
@@ -106,14 +113,18 @@ const OTPPage: React.FC = () => {
         publicKey: publicKeyOptions,
       })) as PublicKeyCredential;
 
-      const attestationResponse = credential.response as AuthenticatorAttestationResponse;
-      const attestationObject = new Uint8Array(attestationResponse.attestationObject);
+      const attestationResponse =
+        credential.response as AuthenticatorAttestationResponse;
+      const attestationObject = new Uint8Array(
+        attestationResponse.attestationObject
+      );
       const decodedAttestation = await decodeFirst(attestationObject.buffer);
 
       // Get public key bytes from decoded CBOR
       const publicKeyBytes = decodedAttestation.authData.slice(-65); // ES256 public key is 65 bytes
-      const publicKeyBase64 = btoa(String.fromCharCode(...new Uint8Array(publicKeyBytes)));
-
+      const publicKeyBase64 = btoa(
+        String.fromCharCode(...new Uint8Array(publicKeyBytes))
+      );
 
       const credentialData = {
         request: userData,
@@ -121,15 +132,19 @@ const OTPPage: React.FC = () => {
           credential_id: credential.id,
           public_key: publicKeyBase64, // now included
           attestation_object: btoa(
-            String.fromCharCode(...new Uint8Array(attestationResponse.attestationObject))
+            String.fromCharCode(
+              ...new Uint8Array(attestationResponse.attestationObject)
+            )
           ),
           client_data_json: btoa(
-            String.fromCharCode(...new Uint8Array(attestationResponse.clientDataJSON))
+            String.fromCharCode(
+              ...new Uint8Array(attestationResponse.clientDataJSON)
+            )
           ),
         },
       };
 
-      localStorage.setItem("credential_id", JSON.stringify(credential.id));
+      localStorage.setItem("credential_id", credential.id);
 
       const verifyRes = await fetch("/api/v1/auth/passkey/register/verify", {
         method: "POST",

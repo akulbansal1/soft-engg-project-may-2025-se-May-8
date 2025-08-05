@@ -27,7 +27,7 @@ import { format } from "date-fns";
 import * as yup from "yup";
 import { useNavigate } from "react-router-dom";
 import BackgroundAnimation from "@/components/BackgroundAnimation";
-import { decodeFirst } from 'cbor-web';
+import { decodeFirst } from "cbor-web";
 
 // ✅ Yup Schemas
 
@@ -73,20 +73,24 @@ const AuthenticationPage: React.FC = () => {
       setSignInError("Please enter a valid phone number.");
       return;
     }
-    
+
     const credentialId = localStorage.getItem("credential_id");
 
     if (!credentialId) {
       throw new Error("Credential ID not found in localStorage.");
     }
 
+    const validData = { credential_id: credentialId };
+
+    console.log(validData);
+
     try {
       const challengeRes = await fetch("/api/v1/auth/passkey/login/challenge", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({"credential_id": credentialId}),
+        body: JSON.stringify(validData),
       });
-      
+
       if (!challengeRes.ok) {
         throw new Error("Failed to get passkey challenge");
       }
@@ -94,16 +98,16 @@ const AuthenticationPage: React.FC = () => {
       const challengeData = await challengeRes.json();
 
       function base64urlToBase64(input: string): string {
-        input = input.replace(/-/g, '+').replace(/_/g, '/');
+        input = input.replace(/-/g, "+").replace(/_/g, "/");
         const pad = input.length % 4;
-        if (pad) input += '='.repeat(4 - pad);
+        if (pad) input += "=".repeat(4 - pad);
         return input;
       }
 
       function base64urlToUint8Array(base64url: string): Uint8Array {
-        const base64 = base64url.replace(/-/g, '+').replace(/_/g, '/');
+        const base64 = base64url.replace(/-/g, "+").replace(/_/g, "/");
         const pad = base64.length % 4;
-        const padded = base64 + (pad ? '='.repeat(4 - pad) : '');
+        const padded = base64 + (pad ? "=".repeat(4 - pad) : "");
 
         const binaryString = atob(padded);
         const bytes = new Uint8Array(binaryString.length);
@@ -113,9 +117,10 @@ const AuthenticationPage: React.FC = () => {
         return bytes;
       }
 
-
       const publicKeyOptions: PublicKeyCredentialRequestOptions = {
-        challenge: Uint8Array.from(atob(challengeData.challenge), (c) => c.charCodeAt(0)),
+        challenge: Uint8Array.from(atob(challengeData.challenge), (c) =>
+          c.charCodeAt(0)
+        ),
         allowCredentials: [
           {
             id: base64urlToUint8Array(credentialId),
@@ -139,9 +144,17 @@ const AuthenticationPage: React.FC = () => {
         },
         response_data: {
           credential_id: credentialId,
-          signature: btoa(String.fromCharCode(...new Uint8Array(authResponse.signature))),
-          client_data_json: btoa(String.fromCharCode(...new Uint8Array(authResponse.clientDataJSON))),
-          authenticator_data: btoa(String.fromCharCode(...new Uint8Array(authResponse.authenticatorData))),
+          signature: btoa(
+            String.fromCharCode(...new Uint8Array(authResponse.signature))
+          ),
+          client_data_json: btoa(
+            String.fromCharCode(...new Uint8Array(authResponse.clientDataJSON))
+          ),
+          authenticator_data: btoa(
+            String.fromCharCode(
+              ...new Uint8Array(authResponse.authenticatorData)
+            )
+          ),
           sign_count: 1,
         },
       };
@@ -161,7 +174,6 @@ const AuthenticationPage: React.FC = () => {
       const result = await verifyRes.json();
       console.log("✅ Passkey registered successfully:", result);
       navigate("/home");
-
     } catch (err: any) {
       setSignInError(err.message || "Something went wrong.");
       console.error("❌ Registration error:", err);
@@ -203,7 +215,13 @@ const AuthenticationPage: React.FC = () => {
       }));
     }
 
-    if (!signupData.firstName || !signupData.lastName || !signupData.phone || !signupData.dob || !signupData.gender) {
+    if (
+      !signupData.firstName ||
+      !signupData.lastName ||
+      !signupData.phone ||
+      !signupData.dob ||
+      !signupData.gender
+    ) {
       setLoading(false);
       return;
     }
@@ -224,7 +242,6 @@ const AuthenticationPage: React.FC = () => {
       }
 
       navigate("/otp", { state: { user_info: signupData } });
-
     } catch (err: any) {
       if (err.name === "ValidationError" && err.errors?.[0]) {
         setSignupErrors(err.errors[0]);
@@ -235,10 +252,7 @@ const AuthenticationPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-    
   };
-
-
 
   const handleSignInChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSignInPhone(e.target.value);
@@ -310,11 +324,9 @@ const AuthenticationPage: React.FC = () => {
                   )}
 
                   <div className="flex flex-col mt-5">
-                    <Button
-                      type="submit"
-                      className="flex-1 h-12 rounded-xl"
-                    >
-                      <ScanFace className="w-4 h-4 mr-2" />Login with Face ID
+                    <Button type="submit" className="flex-1 h-12 rounded-xl">
+                      <ScanFace className="w-4 h-4 mr-2" />
+                      Login with Face ID
                     </Button>
                   </div>
                 </form>
