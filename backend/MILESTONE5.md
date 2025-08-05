@@ -49,7 +49,7 @@ We used pytest as our main testing tool. The tests use FastAPI's TestClient to s
 - test_delete_doctor_patient_unauthorized: Success
 - test_doctor_complete_admin_workflow: Success
 
-### Emergency Contacts API (10 tests - 8 Passed, 2 Failed)
+### Emergency Contacts API (10 tests - 10 Passed)
 
 - test_create_emergency_contact_valid_data: Success
 - test_create_emergency_contact_missing_required_fields: Success
@@ -58,9 +58,9 @@ We used pytest as our main testing tool. The tests use FastAPI's TestClient to s
 - test_get_emergency_contacts_by_user: Success
 - test_update_emergency_contact_valid_data: Success
 - test_delete_emergency_contact_and_verify_gone: Success
-- test_sos_trigger_successful: **Failed** (Twilio configuration issue)
+- test_sos_trigger_successful: Success
 - test_sos_trigger_no_emergency_contacts: Success
-- test_sos_trigger_sms_service_fails: **Failed** (Twilio configuration issue)
+- test_sos_trigger_sms_service_fails: Success
 
 ### Medicines API (17 tests - 16 Passed, 1 Failed)
 
@@ -128,7 +128,7 @@ We used pytest as our main testing tool. The tests use FastAPI's TestClient to s
 - test_invalid_phone_number_format: Success
 - test_extremely_long_user_name: Success
 - test_concurrent_registration_attempts: Success
-- test_passkey_registration_challenge: **Failed** (User name mismatch in challenge)
+- test_passkey_registration_challenge: **Failed** (Database pollution issue)
 - test_passkey_login_challenge: Success
 - test_passkey_registration_verification_with_real_webauthn_data: **Failed** (WebAuthn integration issue)
 - test_passkey_login_verification_with_real_webauthn_data: **Failed** (WebAuthn integration issue)
@@ -168,7 +168,7 @@ We used pytest as our main testing tool. The tests use FastAPI's TestClient to s
 - test_sms_send_rate_limit: Success
 - test_sms_verify_attempts_limit: Success
 
-### Other Service Tests (166 tests - 158 Passed, 8 Failed)
+### Other Service Tests (129 tests - 125 Passed, 4 Failed)
 
 This includes internal service layer tests, database tests, configuration tests, and other infrastructure components. These tests focus on the business logic and data layer functionality rather than API endpoints. The failures here are primarily related to passkey service integration issues and some authentication service edge cases that don't affect the core API functionality.
 
