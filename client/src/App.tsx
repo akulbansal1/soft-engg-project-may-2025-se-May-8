@@ -11,6 +11,7 @@ import AppointmentsPage from "./pages/AppointmentsPage";
 import MedicinesPage from "./pages/MedicinesPage";
 import DataVault from "./pages/DataVault";
 import Settings from "./pages/Settings";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 const App: React.FC = () => {
   const [dark, setDark] = useState<boolean>(() => {
@@ -47,19 +48,24 @@ const App: React.FC = () => {
 
         <main className="flex-grow w-full p-4">
           <Routes>
+            {/* Public Routes */}
             <Route path="/" element={<WelcomePage />} />
             <Route path="/authentication" element={<Authentication />} />
             <Route path="/otp" element={<OTPPage />} />
             <Route path="/face-id" element={<FaceIDPage />} />
-            <Route path="/home" element={<HomePage />} />
-            <Route
-              path="/emergency-contacts"
-              element={<EmergencyContactsPage />}
-            />
-            <Route path="/appointments" element={<AppointmentsPage />} />
-            <Route path="/medicines" element={<MedicinesPage />} />
-            <Route path="/data-vault" element={<DataVault />} />
-            <Route path="/settings" element={<Settings />} />
+
+            {/* Protected Routes */}
+            <Route element={<ProtectedRoute />}>
+              <Route path="/home" element={<HomePage />} />
+              <Route
+                path="/emergency-contacts"
+                element={<EmergencyContactsPage />}
+              />
+              <Route path="/appointments" element={<AppointmentsPage />} />
+              <Route path="/medicines" element={<MedicinesPage />} />
+              <Route path="/data-vault" element={<DataVault />} />
+              <Route path="/settings" element={<Settings />} />
+            </Route>
           </Routes>
         </main>
       </div>
