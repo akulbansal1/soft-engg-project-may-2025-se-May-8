@@ -1,6 +1,14 @@
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, List
 from datetime import date, datetime
+from enum import Enum
+
+class TimeUnit(str, Enum):
+    """Enum for time units compatible with timedelta for reminders."""
+    DAYS = "days"
+    HOURS = "hours"
+    MINUTES = "minutes"
+    WEEKS = "weeks"
 
 class MedicineBase(BaseModel):
     """Base schema for medicine details."""
@@ -68,5 +76,31 @@ class MedicineTranscriptionResponse(BaseModel):
                 "start_date": "2025-06-25T08:00:00Z",
                 "end_date": "2025-07-05T08:00:00Z",
                 "notes": "Take with food"
+            }
+        }
+
+class FrequencyInterval(BaseModel):
+    """Schema for a single time interval in a frequency pattern."""
+    unit: TimeUnit = Field(..., description="Time unit for the interval")
+    value: int = Field(..., description="Numeric value for the interval")
+    
+class FrequencyScheduleTime(BaseModel):
+    """Schema for a specific time in the schedule."""
+    hour: int = Field(..., ge=0, le=23, description="Hour in 24-hour format (0-23)")
+    minute: int = Field(..., ge=0, le=59, description="Minute (0-59)")
+
+class FrequencyPatternResponse(BaseModel):
+    """Schema for AI-generated frequency pattern from text."""
+    interval: FrequencyInterval = Field(..., description="Time interval between doses")
+    times_per_interval: List[FrequencyScheduleTime] = Field(..., description="Specific times during each interval")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "interval": {"unit": "days", "value": 1},
+                "times_per_interval": [
+                    {"hour": 9, "minute": 0},
+                    {"hour": 21, "minute": 0}
+                ]
             }
         }

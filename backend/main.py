@@ -8,6 +8,7 @@ from src.db.database import engine, Base
 from src.api import api_router
 from src.core.config import settings
 from src.core.auth_middleware import RequireAuth, OptionalAuth
+from src.utils.reminder_integration import lifespan
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
@@ -58,8 +59,9 @@ app = FastAPI(
     },
     license_info={
         "name": "MIT License"
-    }
+    },
 )
+lifespan=lifespan
 
 # Add CORS middleware
 app.add_middleware(

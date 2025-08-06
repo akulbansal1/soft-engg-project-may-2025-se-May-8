@@ -76,6 +76,11 @@ class Settings:
 
     MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB in bytes
     
+    # Reminder System Configuration
+    REMINDER_CHECK_INTERVAL_MINUTES = int(os.getenv("REMINDER_CHECK_INTERVAL_MINUTES", "5"))
+    REMINDER_CLEANUP_HOUR = int(os.getenv("REMINDER_CLEANUP_HOUR", "2"))
+    REMINDER_CLEANUP_DAYS = int(os.getenv("REMINDER_CLEANUP_DAYS", "30"))
+
     # CORS
     ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",")
 

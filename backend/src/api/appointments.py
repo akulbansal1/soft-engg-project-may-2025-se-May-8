@@ -7,6 +7,7 @@ from typing import List
 from src.db.database import get_db
 from src.core.auth_middleware import RequireAdmin
 from src.services.appointment_service import AppointmentService
+from src.services.reminder_scheduler import ReminderService
 from src.schemas.appointment import AppointmentCreate, AppointmentUpdate, AppointmentResponse
 from src.utils.cache import Cache
 
@@ -29,6 +30,12 @@ def create_appointment(appointment: AppointmentCreate, db: Session = Depends(get
     """
     try:
         result = AppointmentService.create_appointment(db, appointment)
+
+        ReminderService.auto_create_appointment_reminders(
+            db, 
+            appointment_id=result.id
+        )
+        
         Cache.delete(f"appointments_user_{appointment.user_id}")
         Cache.delete(f"appointments_doctor_{appointment.doctor_id}")
         return result
