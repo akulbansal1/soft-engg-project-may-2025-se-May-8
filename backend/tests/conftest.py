@@ -8,9 +8,11 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
+from contextlib import asynccontextmanager
 
 # Set test environment variables before importing the app
 os.environ["SMS_VERIFICATION_ENABLED"] = "False"
+os.environ["TESTING"] = "True"
 
 from main import app
 from src.db.database import Base, get_db

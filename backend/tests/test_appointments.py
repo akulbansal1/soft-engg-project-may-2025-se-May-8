@@ -68,9 +68,12 @@ class TestAppointments:
         response = client.post("/api/v1/appointments/", json=appointment_data)
         assert response.status_code == 200 or response.status_code == 201
         appointment = response.json()
+
         assert appointment["name"] == appointment_data["name"]
         assert appointment["user_id"] == user_id
         assert appointment["doctor_id"] == doctor_id
+        assert appointment["date"] == appointment_data["date"]
+        assert appointment["time"] == appointment_data["time"]        
         appointment_id = appointment["id"]
 
         # Get all appointments for user
