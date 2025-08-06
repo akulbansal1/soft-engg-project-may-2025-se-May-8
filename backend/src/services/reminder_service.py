@@ -5,6 +5,7 @@ from src.models.reminder import Reminder, ReminderType, ReminderStatus
 from src.models.appointment import Appointment
 from src.models.medicine import Medicine
 from src.schemas.reminder import ReminderCreate, ReminderUpdate
+from src.services.ai_service import AIService
 
 class ReminderService:
     """Service class for Reminder CRUD operations and scheduling."""
@@ -216,12 +217,11 @@ class ReminderService:
     @staticmethod
     def auto_create_medicine_reminders(
         db: Session, 
-        medicine_id: int,
+        medicine: Medicine,
         start_date: Optional[datetime] = None,
         end_date: Optional[datetime] = None
     ) -> List[Reminder]:
         """Automatically create reminders for medicine based on frequency."""
-        medicine = db.query(Medicine).filter(Medicine.id == medicine_id).first()
         if not medicine:
             return []
 
@@ -264,6 +264,33 @@ class ReminderService:
                 pattern = freq_pattern
                 break
         
+        # If no pattern matched, try AI parsing
+        if not pattern:
+            try:
+                ai_result = AIService.parse_medicine_frequency(medicine)
+                if ai_result and 'interval' in ai_result and 'times_per_interval' in ai_result:
+                    interval_data = ai_result['interval']
+                    times_data = ai_result['times_per_interval']
+                    unit = interval_data['unit']
+                    value = interval_data['value']
+                    
+                    # Create timedelta using dynamic kwargs - all units forced to be timedelta-compatible
+                    interval_kwargs = {unit: value}
+                    interval = timedelta(**interval_kwargs)
+                    
+                    times_per_day = []
+                    for time_data in times_data:
+                        times_per_day.append(time(time_data['hour'], time_data['minute']))
+                    
+                    pattern = {
+                        "interval": interval,
+                        "times_per_day": times_per_day
+                    }
+            except Exception as e:
+                # Log error but continue with fallback
+                print(f"AI frequency parsing failed: {e}")
+
+        # Final fallback if both rule-based and AI parsing failed
         if not pattern:
             pattern = {
                 "interval": timedelta(days=1),
@@ -284,7 +311,7 @@ class ReminderService:
                 
                 if reminder_datetime > datetime.now():
                     reminder = ReminderService.create_medicine_reminder(
-                        db, medicine_id, reminder_datetime
+                        db, medicine.id, reminder_datetime
                     )
                     if reminder:
                         reminders.append(reminder)

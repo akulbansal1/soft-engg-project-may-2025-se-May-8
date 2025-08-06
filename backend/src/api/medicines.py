@@ -71,7 +71,7 @@ def create_medicine(
 
         ReminderService.auto_create_medicine_reminders(
             db,
-            result.id,
+            result,
         )
 
         Cache.delete(f"medicines_user_{medicine.user_id}")

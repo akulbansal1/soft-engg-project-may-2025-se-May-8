@@ -10,7 +10,8 @@ from src.services.reminder_service import ReminderService
 from src.core.config import settings
 from src.models.doctor import Doctor
 from src.models.appointment import Appointment
-from datetime import date, time
+from src.models.medicine import Medicine
+from datetime import date, time, timedelta
 
 ## TODO: Add more tests for the Medicine API
 ## TODO: Add unit tests for the Medicine service
@@ -171,9 +172,10 @@ class TestMedicines:
             assert response.status_code == 200 or response.status_code == 201
             medicine = response.json()
             medicine_id = medicine["id"]
+            medicine_obj = test_db.query(Medicine).filter_by(id=medicine_id).first()
             
             # Create reminders for this medicine
-            reminders = ReminderService.auto_create_medicine_reminders(test_db, medicine_id)
+            reminders = ReminderService.auto_create_medicine_reminders(test_db, medicine_obj)
             
             # Check that reminders were created
             # For 3 days with the given frequency, we should have approximately:
@@ -197,4 +199,46 @@ class TestMedicines:
                 assert "medicine" in reminder.title.lower()
                 assert reminder.scheduled_time is not None
             
-            print(f"✅ {frequency}: Created {len(reminders)} reminders (expected ~{expected_total})")
+            # print(f"✅ {frequency}: Created {len(reminders)} reminders (expected ~{expected_total})")
+
+    def test_medicine_genai_reminder_times(self, client, test_db):
+        """Test that reminders are created at the correct times for a realistic, complex frequency using GenAI parsing."""
+        user, session_token = self.create_authenticated_session(client, test_db)
+        user_id = user.id
+        doctor_id = self.create_doctor(test_db)
+        # Use a realistic, complex frequency to force GenAI
+        start = date.today()
+        end = start + timedelta(days=3)
+        medicine_data = {
+            "name": "Cefixime",
+            "dosage": "200mg",
+            "frequency": "Take one tablet in the morning and one at night",
+            "start_date": str(start),
+            "end_date": str(end),
+            "notes": "Take after food. Do not skip doses.",
+            "user_id": user_id,
+            "doctor_id": doctor_id
+        }
+        response = client.post("/api/v1/medicines/", json=medicine_data)
+        assert response.status_code == 200 or response.status_code == 201
+        medicine = response.json()
+        medicine_id = medicine["id"]
+
+        # Check reminders in DB for correct times (as expected from GenAI parsing)
+        reminders = test_db.query(Reminder).filter_by(user_id=user_id, related_id=medicine_id).all()
+        expected_days = (end - start).days  # 3 days
+        expected_times_per_day = 2  # morning and night
+        expected_total_reminders = expected_days * expected_times_per_day
+        assert len(reminders) == expected_total_reminders, f"Expected {expected_total_reminders} reminders, got {len(reminders)}"
+        # Check that reminders have the expected times (9:30 and 21:00)
+        expected_times = [(9, 30), (21, 30)]
+        reminder_times = [(r.scheduled_time.hour, r.scheduled_time.minute) for r in reminders]
+        for day_offset in range(expected_days):
+            for hour, minute in expected_times:
+                assert (hour, minute) in reminder_times, f"Missing reminder for {hour}:{minute:02d}"
+        # Verify all reminders have correct properties
+        for reminder in reminders:
+            assert reminder.user_id == user_id
+            assert reminder.related_id == medicine_id
+            assert "medicine" in reminder.title.lower()
+            assert reminder.scheduled_time is not None
