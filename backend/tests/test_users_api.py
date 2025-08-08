@@ -1,13 +1,5 @@
 """
-User API endpoint tests
-
-Tests for user management endpoints including user listing, profile access, and SOS functionality.
-Focuses on authentication, authorization, and business logic testing.
-All SMS service calls are mocked to prevent real messages being sent.
-
-SAFETY: This file uses comprehensive mocking to ensure NO real SMS/WhatsApp 
-emergency messages are sent to the phone numbers in tests. The core SMS service 
-functionality is tested separately in test_sms_service.py.
+Tests for user management endpoints including user listing, profile access, and SOS functionality. All SMS service calls are mocked to prevent real messages being sent.
 """
 import pytest
 from unittest.mock import patch, MagicMock
@@ -18,12 +10,10 @@ from src.services.user_service import UserService
 @pytest.fixture(autouse=True)
 def mock_sms_services():
     """Auto-mock all SMS services to prevent real messages being sent during tests"""
-    # Mock both the get_sms_service function and the singleton instance
     with patch('src.services.sms_service.get_sms_service') as mock_get_sms, \
          patch('src.api.users.get_sms_service') as mock_api_get_sms, \
          patch('src.services.sms_service._sms_service_instance') as mock_instance:
         
-        # Create a mock SMS service
         mock_sms_service = MagicMock()
         mock_sms_service.send_emergency_message.return_value = {'success': True}
         mock_sms_service.is_phone_verified.return_value = True

@@ -1,13 +1,5 @@
 """
-SMS API endpoint tests
-
-Tests for SMS verification endpoints in the authentication API.
-Focuses on API layer testing with proper mocking of SMS service.
-All SMS service calls are mocked to prevent real messages being sent.
-
-SAFETY: This file uses comprehensive mocking to ensure NO real SMS/WhatsApp 
-messages are sent to the phone numbers in tests. The core SMS service 
-functionality is tested separately in test_sms_service.py.
+Tests for SMS verification endpoints in the authentication API. All SMS service calls are mocked to prevent real messages being sent.
 """
 import pytest
 from unittest.mock import patch, MagicMock
@@ -20,7 +12,6 @@ def mock_sms_service_imports():
          patch('src.services.sms_service.get_sms_service') as mock_get_sms, \
          patch('src.api.auth.sms_service', create=True) as mock_auth_sms:
         
-        # Create a mock SMS service with all necessary methods
         mock_sms_service = MagicMock()
         mock_sms_service.send_verification_code.return_value = {'success': True, 'message': 'Sent', 'expires_in': 600}
         mock_sms_service.verify_code.return_value = {'success': True, 'message': 'Verified', 'expires_at': None}
@@ -28,7 +19,6 @@ def mock_sms_service_imports():
         mock_sms_service.send_emergency_message.return_value = {'success': True}
         mock_sms_service.is_phone_verified.return_value = True
         
-        # Make all mock objects return our mock service
         mock_proxy.return_value = mock_sms_service
         mock_get_sms.return_value = mock_sms_service
         mock_auth_sms.return_value = mock_sms_service
@@ -272,7 +262,6 @@ class TestSMSAPIRateLimit:
         )
         
         response = client.post("/api/v1/auth/sms/verify", json=request_data)
-        print(response.json())
         assert response.status_code == 400
         data = response.json()
         assert "Too many failed attempts" in data["detail"]
