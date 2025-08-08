@@ -429,8 +429,8 @@ class TestMedicines:
         user_id = user.id
         doctor_id = self.create_doctor(test_db)
 
-        start = date.today()
-        end = start + timedelta(days=3)
+        start = date.today() + timedelta(days=1)
+        end = start + timedelta(days=2)
         medicine_data = {
             "name": "Cefixime",
             "dosage": "200mg",
@@ -447,7 +447,7 @@ class TestMedicines:
         medicine_id = medicine["id"]
 
         reminders = test_db.query(Reminder).filter_by(user_id=user_id, related_id=medicine_id).all()
-        expected_days = (end - start).days
+        expected_days = (end - start).days + 1  # +1 because date range is inclusive
         expected_times_per_day = 2
         expected_total_reminders = expected_days * expected_times_per_day
         assert len(reminders) == expected_total_reminders
