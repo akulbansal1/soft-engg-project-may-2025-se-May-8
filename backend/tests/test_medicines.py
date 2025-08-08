@@ -1,0 +1,465 @@
+import pytest
+from unittest.mock import patch, MagicMock
+from src.models.user import User
+from src.models.reminder import Reminder
+from src.schemas.user import UserCreate
+from src.services.user_service import UserService
+from src.services.reminder_service import ReminderService
+from src.core.config import settings
+from src.models.doctor import Doctor
+from src.models.appointment import Appointment
+from src.models.medicine import Medicine
+from datetime import date, time, timedelta
+import io
+
+class TestMedicines:
+
+    def create_admin_session(self, client):
+        client.cookies.set("session_token", settings.ADMIN_SESSION_TOKEN)
+
+    def create_authenticated_session(self, client, test_db):
+        user_data = UserCreate(name="Test User", phone="1234567890", is_active=True)
+        user = UserService.register_user(test_db, user_data)
+        
+        session_data = UserService.issue_session(user.id)
+        session_token = session_data["session_token"]
+        
+        client.cookies.set("session_token", session_token)
+        
+        return user, session_token
+    
+    def create_user(self, test_db):
+        user = User(name="Test User", phone="1234567890")
+        test_db.add(user)
+        test_db.commit()
+        test_db.refresh(user)
+        return user.id
+
+    def create_doctor(self, test_db):
+        doctor = Doctor(name="Test Doctor", location="Test Hospital")
+        test_db.add(doctor)
+        test_db.commit()
+        test_db.refresh(doctor)
+        return doctor.id
+
+    def test_create_medicine_valid_data_authenticated(self, client, test_db):
+        user, session_token = self.create_authenticated_session(client, test_db)
+        user_id = user.id
+        doctor_id = self.create_doctor(test_db)
+
+        medicine_data = {
+            "name": "Paracetamol",
+            "dosage": "500mg",
+            "frequency": "Once a day after dinner",
+            "start_date": "2025-06-25",
+            "end_date": "2025-07-05",
+            "notes": "Take with food",
+            "user_id": user_id,
+            "doctor_id": doctor_id
+        }
+        
+        response = client.post("/api/v1/medicines/", json=medicine_data)
+        assert response.status_code in [200, 201]
+        medicine = response.json()
+        assert medicine["name"] == medicine_data["name"]
+        assert medicine["dosage"] == medicine_data["dosage"]
+        assert medicine["frequency"] == medicine_data["frequency"]
+        assert medicine["user_id"] == user_id
+        assert "id" in medicine
+
+    def test_create_medicine_missing_required_fields(self, client, test_db):
+        user, session_token = self.create_authenticated_session(client, test_db)
+        
+        incomplete_data = {
+            "name": "Paracetamol",
+            "dosage": "500mg",
+            "user_id": user.id
+        }
+        
+        response = client.post("/api/v1/medicines/", json=incomplete_data)
+        assert response.status_code == 422
+
+    def test_create_medicine_unauthorized(self, client, test_db):
+        user_id = self.create_user(test_db)
+        doctor_id = self.create_doctor(test_db)
+        
+        medicine_data = {
+            "name": "Paracetamol",
+            "dosage": "500mg",
+            "frequency": "Once a day after dinner",
+            "start_date": "2025-06-25",
+            "user_id": user_id,
+            "doctor_id": doctor_id
+        }
+        
+        response = client.post("/api/v1/medicines/", json=medicine_data)
+        assert response.status_code == 401
+
+    def test_create_medicine_invalid_date_format(self, client, test_db):
+        user, session_token = self.create_authenticated_session(client, test_db)
+        user_id = user.id
+        
+        invalid_data = {
+            "name": "Paracetamol",
+            "dosage": "500mg",
+            "frequency": "Once daily",
+            "start_date": "invalid-date",
+            "user_id": user_id
+        }
+        
+        response = client.post("/api/v1/medicines/", json=invalid_data)
+        assert response.status_code == 422
+
+    def test_get_medicines_by_user_authenticated(self, client, test_db):
+        user, session_token = self.create_authenticated_session(client, test_db)
+        user_id = user.id
+        
+        medicine_data = {
+            "name": "Paracetamol",
+            "dosage": "500mg",
+            "frequency": "Once daily",
+            "start_date": "2025-06-25",
+            "user_id": user_id
+        }
+        client.post("/api/v1/medicines/", json=medicine_data)
+        
+        response = client.get(f"/api/v1/medicines/user/{user_id}")
+        assert response.status_code == 200
+        medicines = response.json()
+        assert isinstance(medicines, list)
+        assert len(medicines) >= 1
+        assert medicines[0]["name"] == "Paracetamol"
+
+    def test_get_medicines_by_user_unauthorized_access_denied(self, client, test_db):
+        user_id = self.create_user(test_db)
+        
+        response = client.get(f"/api/v1/medicines/user/{user_id}")
+        assert response.status_code == 401
+
+    def test_update_medicine_valid_data(self, client, test_db):
+        user, session_token = self.create_authenticated_session(client, test_db)
+        user_id = user.id
+        
+        medicine_data = {
+            "name": "Paracetamol",
+            "dosage": "500mg",
+            "frequency": "Once daily",
+            "start_date": "2025-06-25",
+            "user_id": user_id
+        }
+        
+        create_response = client.post("/api/v1/medicines/", json=medicine_data)
+        medicine_id = create_response.json()["id"]
+        
+        update_data = {"dosage": "1000mg", "frequency": "Twice daily"}
+        response = client.put(f"/api/v1/medicines/{medicine_id}", json=update_data)
+        assert response.status_code == 200
+        updated = response.json()
+        assert updated["dosage"] == "1000mg"
+        assert updated["frequency"] == "Twice daily"
+        assert updated["name"] == "Paracetamol"
+
+    def test_update_medicine_unauthorized(self, client, test_db):
+        user, session_token = self.create_authenticated_session(client, test_db)
+        user_id = user.id
+        
+        medicine_data = {
+            "name": "Paracetamol",
+            "dosage": "500mg",
+            "frequency": "Once daily",
+            "start_date": "2025-06-25",
+            "user_id": user_id
+        }
+        
+        create_response = client.post("/api/v1/medicines/", json=medicine_data)
+        medicine_id = create_response.json()["id"]
+        
+        client.cookies.clear()
+        
+        update_data = {"dosage": "1000mg"}
+        response = client.put(f"/api/v1/medicines/{medicine_id}", json=update_data)
+        assert response.status_code == 401
+
+    def test_delete_medicine_and_verify_gone(self, client, test_db):
+        user, session_token = self.create_authenticated_session(client, test_db)
+        user_id = user.id
+        
+        medicine_data = {
+            "name": "Paracetamol",
+            "dosage": "500mg",
+            "frequency": "Once daily",
+            "start_date": "2025-06-25",
+            "user_id": user_id
+        }
+        
+        create_response = client.post("/api/v1/medicines/", json=medicine_data)
+        medicine_id = create_response.json()["id"]
+        
+        delete_response = client.delete(f"/api/v1/medicines/{medicine_id}")
+        assert delete_response.status_code == 200
+        
+        verify_response = client.get(f"/api/v1/medicines/user/{user_id}")
+        assert verify_response.status_code == 200
+        assert len(verify_response.json()) == 0
+
+    def test_medicine_complete_workflow(self, client, test_db):
+        user, session_token = self.create_authenticated_session(client, test_db)
+        user_id = user.id
+        doctor_id = self.create_doctor(test_db)
+        
+        medicine_data = {
+            "name": "Initial Medicine",
+            "dosage": "250mg",
+            "frequency": "Once daily",
+            "start_date": "2025-06-25",
+            "end_date": "2025-07-05",
+            "notes": "With meals",
+            "user_id": user_id,
+            "doctor_id": doctor_id
+        }
+        
+        create_response = client.post("/api/v1/medicines/", json=medicine_data)
+        assert create_response.status_code in [200, 201]
+        medicine_id = create_response.json()["id"]
+        
+        get_response = client.get(f"/api/v1/medicines/user/{user_id}")
+        assert get_response.status_code == 200
+        assert len(get_response.json()) == 1
+        
+        update_data = {"name": "Updated Medicine", "dosage": "500mg"}
+        update_response = client.put(f"/api/v1/medicines/{medicine_id}", json=update_data)
+        assert update_response.status_code == 200
+        assert update_response.json()["name"] == "Updated Medicine"
+        assert update_response.json()["dosage"] == "500mg"
+        
+        delete_response = client.delete(f"/api/v1/medicines/{medicine_id}")
+        assert delete_response.status_code == 200
+        
+        verify_delete = client.get(f"/api/v1/medicines/user/{user_id}")
+        assert verify_delete.status_code == 200
+        assert len(verify_delete.json()) == 0
+
+    def test_transcribe_audio_prescription_success(self, client, test_db):
+        """Test real AI service with actual audio transcription - NO MOCKING"""
+        user, session_token = self.create_authenticated_session(client, test_db)
+        
+        audio_content = ( b'RIFF\x24\x00\x00\x00WAVEfmt \x10\x00\x00\x00\x01\x00\x01\x00'
+    b'\x40\x1f\x00\x00\x40\x1f\x00\x00\x01\x00\x08\x00data\x00\x00\x00\x00')
+        audio_file = io.BytesIO(audio_content)
+        
+        response = client.post(
+            "/api/v1/medicines/transcribe",
+            files={"file": ("prescription.mp3", audio_file, "audio/mpeg")}
+        )
+        assert response.status_code == 200
+        transcription = response.json()
+        assert "name" in transcription
+        assert "dosage" in transcription
+        assert "frequency" in transcription
+        assert "start_date" in transcription
+        assert "end_date" in transcription
+        assert "notes" in transcription
+
+    @patch('src.services.ai_service.AIService.transcribe_prescription')
+    def test_transcribe_audio_prescription_unauthorized(self, mock_transcribe, client, test_db):
+        audio_content = b"fake_audio_data"
+        audio_file = io.BytesIO(audio_content)
+        
+        response = client.post(
+            "/api/v1/medicines/transcribe",
+            files={"file": ("prescription.mp3", audio_file, "audio/mpeg")}
+        )
+        
+        assert response.status_code == 401
+        assert mock_transcribe.call_count == 0
+
+    def test_transcribe_invalid_file_format(self, client, test_db):
+        user, session_token = self.create_authenticated_session(client, test_db)
+        
+        text_content = b"This is not audio data"
+        text_file = io.BytesIO(text_content)
+        
+        response = client.post(
+            "/api/v1/medicines/transcribe",
+            files={"file": ("document.txt", text_file, "text/plain")}
+        )
+        
+        assert response.status_code == 400
+        assert "Invalid audio file format" in response.json()["detail"]
+
+    def test_transcribe_no_file_provided(self, client, test_db):
+        user, session_token = self.create_authenticated_session(client, test_db)
+        
+        response = client.post("/api/v1/medicines/transcribe")
+        
+        assert response.status_code == 422
+
+    def test_transcribe_empty_audio_file(self, client, test_db):
+        user, session_token = self.create_authenticated_session(client, test_db)
+        
+        empty_audio = io.BytesIO(b"")
+        
+        response = client.post(
+            "/api/v1/medicines/transcribe",
+            files={"file": ("empty.wav", empty_audio, "audio/wav")}
+        )
+
+        assert response.status_code == 500
+
+    @patch('src.services.ai_service.AIService.transcribe_prescription')
+    def test_transcribe_ai_service_failure(self, mock_transcribe, client, test_db):
+        user, session_token = self.create_authenticated_session(client, test_db)
+        
+        mock_transcribe.side_effect = Exception("AI service unavailable")
+        
+        audio_content = b"fake_audio_data"
+        audio_file = io.BytesIO(audio_content)
+        
+        response = client.post(
+            "/api/v1/medicines/transcribe",
+            files={"file": ("prescription.mp3", audio_file, "audio/mpeg")}
+        )
+        
+        
+        assert response.status_code == 500
+        assert "Failed to transcribe audio" in response.json()["detail"]
+        assert "AI service unavailable" in response.json()["detail"]
+
+    @patch('src.services.ai_service.AIService.transcribe_prescription')
+    def test_transcribe_partial_medicine_info(self, mock_transcribe, client, test_db):
+        user, session_token = self.create_authenticated_session(client, test_db)
+        
+        mock_transcribe.return_value = {
+            "name": "Aspirin",
+            "dosage": "100mg",
+            "frequency": None,
+            "start_date": None,
+            "end_date": None,
+            "notes": "Partial information extracted from unclear audio"
+        }
+        
+        audio_content = b"unclear_audio_data"
+        audio_file = io.BytesIO(audio_content)
+        
+        response = client.post(
+            "/api/v1/medicines/transcribe",
+            files={"file": ("unclear.wav", audio_file, "audio/wav")}
+        )
+        
+        assert response.status_code == 200
+        transcription = response.json()
+        assert transcription["name"] == "Aspirin"
+        assert transcription["dosage"] == "100mg"
+        assert transcription["frequency"] is None
+        assert "Partial information" in transcription["notes"]
+
+    def test_create_medicine_without_appointment(self, client, test_db):
+        user, session_token = self.create_authenticated_session(client, test_db)
+        user_id = user.id
+        doctor_id = self.create_doctor(test_db)
+        medicine_data = {
+            "name": "Aspirin",
+            "dosage": "100mg",
+            "frequency": "Twice a day",
+            "start_date": "2025-07-01",
+            "end_date": "2025-07-10",
+            "notes": "Take with water",
+            "user_id": user_id,
+            "doctor_id": doctor_id
+        }
+        response = client.post("/api/v1/medicines/", json=medicine_data)
+        assert response.status_code in [200, 201]
+        medicine = response.json()
+        assert medicine["name"] == medicine_data["name"]
+        assert medicine["doctor_id"] == doctor_id
+        assert medicine["user_id"] == user_id
+        assert medicine.get("appointment_id") is None
+
+    def test_medicine_reminder_creation(self, client, test_db):
+        """Test that reminders are created for medicines based on frequency"""
+        user, session_token = self.create_authenticated_session(client, test_db)
+        user_id = user.id
+        doctor_id = self.create_doctor(test_db)
+        
+        # Test different frequencies
+        test_cases = [
+            ("once daily", 1),
+            ("twice daily", 2),
+            ("three times daily", 3),
+        ]
+        
+        for frequency, expected_per_day in test_cases:
+            medicine_data = {
+                "name": f"Test Medicine ({frequency})",
+                "dosage": "1 tablet",
+                "frequency": frequency,
+                "start_date": "2025-08-10",
+                "end_date": "2025-08-12",
+                "notes": f"Test medicine for {frequency}",
+                "user_id": user_id,
+                "doctor_id": doctor_id
+            }
+            
+            response = client.post("/api/v1/medicines/", json=medicine_data)
+            assert response.status_code in [200, 201]
+            medicine = response.json()
+            medicine_id = medicine["id"]
+            medicine_obj = test_db.query(Medicine).filter_by(id=medicine_id).first()
+            
+            reminders = ReminderService.auto_create_medicine_reminders(test_db, medicine_obj)
+            
+            assert len(reminders) >= 1
+            
+            db_reminders = test_db.query(Reminder).filter_by(
+                user_id=user_id, 
+                related_id=medicine_id
+            ).all()
+            
+            assert len(db_reminders) >= 1
+            
+            for reminder in db_reminders:
+                assert reminder.user_id == user_id
+                assert reminder.related_id == medicine_id
+                assert "medicine" in reminder.title.lower()
+                assert reminder.scheduled_time is not None
+
+    def test_medicine_genai_reminder_times(self, client, test_db):
+        """Test that reminders are created at the correct times for a realistic, complex frequency using GenAI parsing."""
+        user, session_token = self.create_authenticated_session(client, test_db)
+        user_id = user.id
+        doctor_id = self.create_doctor(test_db)
+
+        start = date.today() + timedelta(days=1)
+        end = start + timedelta(days=2)
+        medicine_data = {
+            "name": "Cefixime",
+            "dosage": "200mg",
+            "frequency": "Take one tablet in the morning and one at night",
+            "start_date": str(start),
+            "end_date": str(end),
+            "notes": "Take after food. Do not skip doses.",
+            "user_id": user_id,
+            "doctor_id": doctor_id
+        }
+        response = client.post("/api/v1/medicines/", json=medicine_data)
+        assert response.status_code in [200, 201]
+        medicine = response.json()
+        medicine_id = medicine["id"]
+
+        reminders = test_db.query(Reminder).filter_by(user_id=user_id, related_id=medicine_id).all()
+        expected_days = (end - start).days + 1  # +1 because date range is inclusive
+        expected_times_per_day = 2
+        expected_total_reminders = expected_days * expected_times_per_day
+        assert len(reminders) == expected_total_reminders
+        
+        expected_times = [(9, 30), (21, 30)]
+        reminder_times = [(r.scheduled_time.hour, r.scheduled_time.minute) for r in reminders]
+        for day_offset in range(expected_days):
+            for hour, minute in expected_times:
+                assert (hour, minute) in reminder_times
+        
+        for reminder in reminders:
+            assert reminder.user_id == user_id
+            assert reminder.related_id == medicine_id
+            assert "medicine" in reminder.title.lower()
+            assert reminder.scheduled_time is not None
