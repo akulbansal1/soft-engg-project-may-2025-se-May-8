@@ -16,3 +16,4 @@ pip-log.txt
 htmlcov/
 *.db
 SETTINGS.md
+coverage.xml

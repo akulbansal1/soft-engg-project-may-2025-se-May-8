@@ -26,7 +26,6 @@ class TestAuthMiddleware:
 
     def test_get_current_user_success(self, test_db):
         """Test successful user authentication with valid session"""
-        # Create a test user
         user_data = UserCreate(
             name="Test User",
             phone="1234567890",
@@ -67,7 +66,6 @@ class TestAuthMiddleware:
 
     def test_get_current_user_optional_success(self, test_db):
         """Test optional authentication with valid session"""
-        # Create a test user
         user_data = UserCreate(
             name="Test User",
             phone="1234567890",
@@ -98,7 +96,6 @@ class TestAuthMiddleware:
 
     def test_validate_user_ownership_success(self, test_db):
         """Test user ownership validation succeeds for own resource"""
-        # Create a test user
         user_data = UserCreate(
             name="Test User",
             phone="1234567890",
@@ -106,14 +103,12 @@ class TestAuthMiddleware:
         )
         test_user = UserService.register_user(test_db, user_data)
         
-        # Test user accessing their own resource
         result = AuthMiddleware.validate_user_ownership(test_user.id, test_user)
         
         assert result == test_user
 
     def test_validate_user_ownership_forbidden(self, test_db):
         """Test user ownership validation fails for other user's resource"""
-        # Create test users
         user1_data = UserCreate(
             name="User 1",
             phone="1111111111",
@@ -127,7 +122,6 @@ class TestAuthMiddleware:
         user1 = UserService.register_user(test_db, user1_data)
         user2 = UserService.register_user(test_db, user2_data)
         
-        # Test user1 trying to access user2's resource
         with pytest.raises(HTTPException) as exc_info:
             AuthMiddleware.validate_user_ownership(user2.id, user1)
         
@@ -163,7 +157,6 @@ class TestAuthenticationAliases:
 
     def test_require_auth_alias(self, test_db):
         """Test RequireAuth alias works correctly"""
-        # Create a test user
         user_data = UserCreate(
             name="Test User",
             phone="1234567890",
@@ -186,7 +179,6 @@ class TestAuthenticationAliases:
 
     def test_require_ownership_alias(self, test_db):
         """Test RequireOwnership alias works correctly"""
-        # Create a test user
         user_data = UserCreate(
             name="Test User",
             phone="1234567890",
@@ -215,13 +207,11 @@ class TestAuthMiddlewareIntegration:
         user1 = UserService.register_user(test_db, user1_data)
         user2 = UserService.register_user(test_db, user2_data)
         
-        # Test user1 session
         with patch.object(UserService, 'get_user_by_session', return_value=user1):
             authenticated_user = AuthMiddleware.get_current_user("user1_token", test_db)
             assert authenticated_user.id == user1.id
             assert authenticated_user.name == "User 1"
         
-        # Test user2 session
         with patch.object(UserService, 'get_user_by_session', return_value=user2):
             authenticated_user = AuthMiddleware.get_current_user("user2_token", test_db)
             assert authenticated_user.id == user2.id
@@ -229,7 +219,6 @@ class TestAuthMiddlewareIntegration:
 
     def test_inactive_user_authentication(self, test_db):
         """Test that inactive users cannot authenticate"""
-        # Create inactive user
         user_data = UserCreate(
             name="Inactive User",
             phone="1234567890",
@@ -237,7 +226,6 @@ class TestAuthMiddlewareIntegration:
         )
         inactive_user = UserService.register_user(test_db, user_data)
         
-        # Service should return None for inactive users
         with patch.object(UserService, 'get_user_by_session', return_value=None):
             with pytest.raises(HTTPException) as exc_info:
                 AuthMiddleware.get_current_user("session_token", test_db)
@@ -246,17 +234,14 @@ class TestAuthMiddlewareIntegration:
 
     def test_session_token_edge_cases(self, test_db):
         """Test various session token edge cases"""
-        # Empty string token
         with pytest.raises(HTTPException):
             AuthMiddleware.get_current_user("", test_db)
         
-        # Very long token
         long_token = "a" * 1000
         with patch.object(UserService, 'get_user_by_session', return_value=None):
             with pytest.raises(HTTPException):
                 AuthMiddleware.get_current_user(long_token, test_db)
         
-        # Token with special characters
         special_token = "token!@#$%^&*()_+-=[]{}|;:,.<>?"
         with patch.object(UserService, 'get_user_by_session', return_value=None):
             with pytest.raises(HTTPException):
@@ -266,7 +251,6 @@ class TestAuthMiddlewareIntegration:
         """Test authentication behavior when database errors occur"""
         session_token = "valid_token"
         
-        # Mock database error during user lookup
         with patch.object(UserService, 'get_user_by_session', side_effect=Exception("Database error")):
             with pytest.raises(Exception, match="Database error"):
                 AuthMiddleware.get_current_user(session_token, test_db)
@@ -276,17 +260,15 @@ class TestAuthMiddlewareIntegration:
         correct_admin_token = "secure_admin_token_123"
         
         with patch('src.core.config.settings.ADMIN_SESSION_TOKEN', correct_admin_token):
-            # Correct token should work
             assert AuthMiddleware.validate_admin_access(correct_admin_token) is True
             
-            # Similar but wrong tokens should fail
             similar_tokens = [
-                "secure_admin_token_124",  # Off by one
-                "Secure_admin_token_123",  # Different case
-                "secure_admin_token_123 ",  # Extra space
-                " secure_admin_token_123",  # Leading space
-                "secure_admin_token_12",   # Truncated
-                ""  # Empty
+                "secure_admin_token_124",  
+                "Secure_admin_token_123", 
+                "secure_admin_token_123 ",
+                " secure_admin_token_123",
+                "secure_admin_token_12",  
+                "" 
             ]
             
             for token in similar_tokens:
@@ -295,7 +277,6 @@ class TestAuthMiddlewareIntegration:
 
     def test_user_state_changes_during_session(self, test_db):
         """Test authentication behavior when user state changes during active session"""
-        # Create active user
         user_data = UserCreate(
             name="Test User",
             phone="1234567890",
@@ -303,16 +284,13 @@ class TestAuthMiddlewareIntegration:
         )
         user = UserService.register_user(test_db, user_data)
         
-        # Initially user can authenticate
         with patch.object(UserService, 'get_user_by_session', return_value=user):
             authenticated_user = AuthMiddleware.get_current_user("session_token", test_db)
             assert authenticated_user.id == user.id
         
-        # User gets deactivated
         user.is_active = False
         test_db.commit()
         
-        # Now UserService should return None for deactivated user
         with patch.object(UserService, 'get_user_by_session', return_value=None):
             with pytest.raises(HTTPException) as exc_info:
                 AuthMiddleware.get_current_user("session_token", test_db)

@@ -69,7 +69,7 @@ class UserService:
         if existing_user:
             raise ValueError("User with this phone number already exists")
         
-        # Create new user
+
         db_user = User(
             name=user.name, 
             phone=user.phone,
