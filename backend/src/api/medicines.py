@@ -6,6 +6,7 @@ from typing import List, Optional, Annotated
 from src.db.database import get_db
 from src.core.auth_middleware import RequireAdminOrOwnership, RequireAdminOrUser
 from src.services.medicine_service import MedicineService
+from src.services.reminder_service import ReminderService
 from src.services.ai_service import AIService
 from src.schemas.medicine import MedicineCreate, MedicineUpdate, MedicineResponse, MedicineTranscriptionResponse
 from src.utils.cache import Cache
@@ -67,6 +68,12 @@ def create_medicine(
     
     try:
         result = MedicineService.create_medicine(db, medicine)
+
+        ReminderService.auto_create_medicine_reminders(
+            db,
+            result,
+        )
+
         Cache.delete(f"medicines_user_{medicine.user_id}")
         return result
     except Exception as e:

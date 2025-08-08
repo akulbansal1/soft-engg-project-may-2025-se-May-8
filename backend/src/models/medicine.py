@@ -27,3 +27,19 @@ class Medicine(Base):
 
     def __repr__(self):
         return f"<Medicine(id={self.id}, user_id={self.user_id}, name='{self.name}')>"
+
+    def __str__(self):
+        return (
+            f"Medicine(\n"
+            f"  id={self.id},\n"
+            f"  user_id={self.user_id},\n"
+            f"  doctor_id={self.doctor_id},\n"
+            f"  appointment_id={self.appointment_id},\n"
+            f"  name='{self.name}',\n"
+            f"  dosage='{self.dosage}',\n"
+            f"  frequency='{self.frequency}',\n"
+            f"  start_date={self.start_date},\n"
+            f"  end_date={self.end_date},\n"
+            f"  notes='{self.notes}'\n"
+            f")"
+        )

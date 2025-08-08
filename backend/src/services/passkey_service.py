@@ -286,7 +286,7 @@ class PasskeyService:
         Cache.delete(f"webauthn_login_challenge_{credential.user_id}")
 
         ## NOTE: Might have to think about the sign_count logic here
-        credential.sign_count = response_data.sign_count + 1
+        credential.sign_count = response.new_sign_count
         db.commit()
 
         return PasskeyVerificationResult(

@@ -3,13 +3,16 @@ from src.api.constants import AUTH_ERROR_RESPONSES
 from fastapi import Query, Path
 from sqlalchemy.orm import Session
 from typing import List
+from datetime import datetime
 
 from src.db.database import get_db
 from src.services.user_service import UserService
 from src.services.emergency_contact_service import EmergencyContactService
+from src.services.reminder_service import ReminderService
 from src.services.sms_service import get_sms_service
 from src.schemas.user import  UserResponse, UserSession
 from src.schemas.sos import SOSResponse, SOSRequest
+from src.schemas.reminder import ReminderResponse
 
 from src.core.auth_middleware import RequireAuth, RequireOwnership, RequireAdminOrUser
 
@@ -122,3 +125,65 @@ def trigger_sos(
         contacts_notified=contacts_notified,
         failed_notifications=failed_notifications
     )
+
+@router.get(
+    "/{user_id}/reminders",
+    response_model=List[ReminderResponse],
+    responses={
+        **AUTH_ERROR_RESPONSES
+    }
+)
+def get_user_reminders(
+    user_id: int = Path(..., description="ID of the user to get reminders for"),
+    include_inactive: bool = Query(False, description="Whether to include inactive/cancelled reminders"),
+    limit: int = Query(100, description="Maximum number of reminders to return"),
+    skip: int = Query(0, description="Number of reminders to skip for pagination"),
+    db: Session = Depends(get_db),
+    user = Depends(RequireOwnership)
+):
+    """
+    Get all reminders for a user. Returns past, current and future reminders.
+    Only the user can access their own reminders.
+    
+    Query parameters:
+    - include_inactive: Include cancelled/inactive reminders (default: false)
+    - limit: Maximum number of results (default: 100)
+    - skip: Number of results to skip for pagination (default: 0)
+    """
+    reminders = ReminderService.get_reminders_by_user(
+        db, 
+        user_id, 
+        include_inactive=include_inactive
+    )
+    
+    paginated_reminders = reminders[skip:skip + limit]
+    
+    return [ReminderResponse.model_validate(reminder) for reminder in paginated_reminders]
+
+@router.get(
+    "/{user_id}/reminders/past",
+    response_model=List[ReminderResponse],
+    responses={
+        **AUTH_ERROR_RESPONSES
+    }
+)
+def get_user_past_reminders(
+    user_id: int = Path(..., description="ID of the user to get pending reminders for"),
+    limit: int = Query(50, description="Maximum number of reminders to return"),
+    db: Session = Depends(get_db),
+    user = Depends(RequireOwnership)
+):
+    """
+    Get only past reminders for a user, that have already occurred.
+    Only the user can access their own reminders.
+    """
+    reminders = ReminderService.get_reminders_by_user(
+        db, 
+        user_id
+    )
+
+    reminders = [rem for rem in reminders if rem.scheduled_time < datetime.now() and rem.is_active]
+    
+    limited_reminders = reminders[:limit]
+    
+    return [ReminderResponse.model_validate(reminder) for reminder in limited_reminders]

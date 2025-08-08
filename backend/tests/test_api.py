@@ -26,6 +26,8 @@ class TestAPIEndpoints:
 
     def test_api_method_validation(self, client):
         """Test that API validates HTTP methods correctly for specific endpoints"""
+        # Test method validation on a different endpoint than test_main.py
+        # Only test PUT and DELETE here since POST is covered in test_main.py
         response = client.put("/api/v1/")
         assert response.status_code == 405
 
@@ -38,6 +40,7 @@ class TestRequestHandling:
 
     def test_cors_middleware(self, client):
         """Test CORS middleware functionality with specific headers"""
+        # Test more comprehensive CORS functionality than test_main.py
         headers = {
             "Origin": "http://localhost:3000",
             "Access-Control-Request-Method": "POST",
