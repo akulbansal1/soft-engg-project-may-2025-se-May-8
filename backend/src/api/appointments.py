@@ -57,7 +57,21 @@ def get_appointments_by_user(
     if cached_appointments:
         return cached_appointments
     appointments = AppointmentService.get_appointments_by_user(db, user_id)
-    appointments_data = [AppointmentResponse.model_validate(app) for app in appointments]
+    
+    appointments_data = []
+    for app in appointments:
+        app_dict = {
+            "id": app.id,
+            "name": app.name,
+            "date": app.date,
+            "time": app.time,
+            "notes": app.notes,
+            "user_id": app.user_id,
+            "doctor_id": app.doctor_id,
+            "medicines": [medicine.id for medicine in app.medicines] if app.medicines else None
+        }
+        appointments_data.append(AppointmentResponse.model_validate(app_dict))
+    
     Cache.set(cache_key, [app.model_dump() for app in appointments_data], expiry=300)
     return appointments_data
 
@@ -76,7 +90,21 @@ def get_appointments_by_doctor(
     if cached_appointments:
         return cached_appointments
     appointments = AppointmentService.get_appointments_by_doctor(db, doctor_id)
-    appointments_data = [AppointmentResponse.model_validate(app) for app in appointments]
+    
+    appointments_data = []
+    for app in appointments:
+        app_dict = {
+            "id": app.id,
+            "name": app.name,
+            "date": app.date,
+            "time": app.time,
+            "notes": app.notes,
+            "user_id": app.user_id,
+            "doctor_id": app.doctor_id,
+            "medicines": [medicine.id for medicine in app.medicines] if app.medicines else None
+        }
+        appointments_data.append(AppointmentResponse.model_validate(app_dict))
+    
     Cache.set(cache_key, [app.model_dump() for app in appointments_data], expiry=300)
     return appointments_data
 

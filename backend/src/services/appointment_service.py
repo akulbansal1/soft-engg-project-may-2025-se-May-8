@@ -24,12 +24,14 @@ class AppointmentService:
     @staticmethod
     def get_appointments_by_user(db: Session, user_id: int) -> List[Appointment]:
         """Get all appointments for a user."""
-        return db.query(Appointment).filter(Appointment.user_id == user_id).all()
+        from sqlalchemy.orm import selectinload
+        return db.query(Appointment).options(selectinload(Appointment.medicines)).filter(Appointment.user_id == user_id).all()
 
     @staticmethod
     def get_appointments_by_doctor(db: Session, doctor_id: int) -> List[Appointment]:
         """Get all appointments for a doctor."""
-        return db.query(Appointment).filter(Appointment.doctor_id == doctor_id).all()
+        from sqlalchemy.orm import selectinload
+        return db.query(Appointment).options(selectinload(Appointment.medicines)).filter(Appointment.doctor_id == doctor_id).all()
 
     @staticmethod
     def update_appointment(db: Session, appointment_id: int, appointment_in: AppointmentUpdate) -> Optional[Appointment]:
