@@ -1,11 +1,16 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Pencil, Trash2, PlusCircle, Search, ArrowLeft } from "lucide-react";
+import {
+  Pencil,
+  Trash2,
+  PlusCircle,
+  ArrowLeft,
+  AlertTriangle,
+} from "lucide-react";
 import {
   Dialog,
-  DialogTrigger,
   DialogContent,
   DialogHeader,
   DialogTitle,
@@ -15,6 +20,18 @@ import {
 import { Input } from "@/components/ui/input";
 import { useNavigate } from "react-router-dom";
 import * as yup from "yup";
+import { useAuth } from "@/context/AuthContext";
+import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
+
+const BASE_URL = "/api/v1"; // Use the proxy
+
+interface Contact {
+  id: number;
+  name: string;
+  relation: string;
+  phone: string;
+}
 
 const contactSchema = yup.object().shape({
   name: yup.string().required("Name is required"),
@@ -22,39 +39,62 @@ const contactSchema = yup.object().shape({
   phone: yup
     .string()
     .required("Phone number is required")
-    .matches(/^\d+$/, "Phone number must contain only digits"),
+    .matches(
+      /^\+?\d+$/,
+      "Phone number must contain only digits and may start with +"
+    ),
 });
 
-interface Contact {
-  name: string;
-  relation: string;
-  phone: string;
-}
-
 const EmergencyContactsPage: React.FC = () => {
-  const [contacts, setContacts] = useState<Contact[]>([
-    { name: "John Doe", relation: "Brother", phone: "+91-9876543210" },
-    { name: "Jane Smith", relation: "Neighbor", phone: "+91-9123456780" },
-    { name: "Rajesh Kumar", relation: "Father", phone: "+91-9012345678" },
-    { name: "Rajesh Kumar", relation: "Father", phone: "+91-9012345678" },
-    { name: "Rajesh Kumar", relation: "Father", phone: "+91-9012345678" },
-  ]);
+  const { user } = useAuth();
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
   const [modalOpen, setModalOpen] = useState(false);
-  const [editIndex, setEditIndex] = useState<number | null>(null);
-  const [form, setForm] = useState<Contact>({
+  const [editContact, setEditContact] = useState<Contact | null>(null);
+
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [contactToDelete, setContactToDelete] = useState<Contact | null>(null);
+
+  const [form, setForm] = useState<Omit<Contact, "id">>({
     name: "",
     relation: "",
     phone: "",
   });
-  const [formErrors, setFormErrors] = useState<{ [key: string]: string }>({});
-  const [searchTerm, setSearchTerm] = useState("");
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const navigate = useNavigate();
 
-  const handleOpen = (idx: number | null = null) => {
-    if (idx !== null) setForm(contacts[idx]);
-    else setForm({ name: "", relation: "", phone: "" });
+  // READ: Fetch contacts when the component mounts
+  useEffect(() => {
+    if (user) {
+      setIsLoading(true);
+      fetch(`${BASE_URL}/emergency-contacts/user/${user.id}`)
+        .then((res) => {
+          if (!res.ok) throw new Error("Failed to fetch contacts");
+          return res.json();
+        })
+        .then((data: Contact[]) => setContacts(data))
+        .catch((err) => {
+          console.error("Fetch contacts error:", err);
+          toast.error("Could not load your contacts.");
+        })
+        .finally(() => setIsLoading(false));
+    }
+  }, [user]);
+
+  const openModal = (contact?: Contact) => {
+    if (contact) {
+      setEditContact(contact);
+      setForm({
+        name: contact.name,
+        relation: contact.relation,
+        phone: contact.phone,
+      });
+    } else {
+      setEditContact(null);
+      setForm({ name: "", relation: "", phone: "" });
+    }
     setFormErrors({});
-    setEditIndex(idx);
     setModalOpen(true);
   };
 
@@ -65,36 +105,102 @@ const EmergencyContactsPage: React.FC = () => {
   };
 
   const handleSave = async () => {
+    if (!user) return;
+
     try {
       await contactSchema.validate(form, { abortEarly: false });
-      if (editIndex !== null) {
-        const updated = [...contacts];
-        updated[editIndex] = form;
-        setContacts(updated);
+
+      const method = editContact ? "PUT" : "POST";
+      const endpoint = editContact
+        ? `${BASE_URL}/emergency-contacts/${editContact.id}`
+        : `${BASE_URL}/emergency-contacts/`;
+
+      const payload = { ...form, user_id: user.id };
+
+      const res = await fetch(endpoint, {
+        method: method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const errDetail = await res.json();
+        throw new Error(errDetail.detail || "Failed to save contact");
+      }
+
+      if (editContact) {
+        const updatedContact = await res.json();
+        setContacts((prev) =>
+          prev.map((c) => (c.id === editContact.id ? updatedContact : c))
+        );
+        toast.info("Contact updated successfully!");
       } else {
-        setContacts([...contacts, form]);
+        const newContact = await res.json();
+        setContacts((prev) => [...prev, newContact]);
+        toast.success("Contact added successfully!");
       }
       setModalOpen(false);
     } catch (err: any) {
       if (err.inner) {
-        const errors: { [key: string]: string } = {};
+        const errors: Record<string, string> = {};
         err.inner.forEach((e: any) => {
           if (e.path) errors[e.path] = e.message;
         });
         setFormErrors(errors);
+      } else {
+        console.error("Save error:", err);
+        toast.error("Failed to save contact", { description: err.message });
       }
     }
   };
 
-  const handleDelete = (idx: number) => {
-    setContacts((prev) => prev.filter((_, i) => i !== idx));
+  const openDeleteConfirm = (contact: Contact) => {
+    setContactToDelete(contact);
+    setConfirmDeleteOpen(true);
   };
 
-  const filteredContacts = contacts.filter(
-    (c) =>
-      c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.relation.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.phone.includes(searchTerm)
+  const handleDelete = async () => {
+    if (!user || !contactToDelete) return;
+    try {
+      const res = await fetch(
+        `${BASE_URL}/emergency-contacts/${contactToDelete.id}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      if (!res.ok) {
+        const errDetail = await res.json();
+        throw new Error(errDetail.detail || "Failed to delete contact");
+      }
+      setContacts((prev) => prev.filter((c) => c.id !== contactToDelete.id));
+      toast.success(`"${contactToDelete.name}" was deleted.`);
+      setConfirmDeleteOpen(false);
+      setContactToDelete(null);
+    } catch (err: any) {
+      console.error("Delete error:", err);
+      toast.error("Deletion failed", { description: err.message });
+    }
+  };
+
+  const SkeletonLoader = () => (
+    <div className="space-y-4 pt-4">
+      {[...Array(3)].map((_, i) => (
+        <Card key={i} className="p-4 animate-pulse">
+          <div className="flex justify-between items-center">
+            <div>
+              <div className="h-6 w-32 bg-muted rounded mb-2"></div>
+              <div className="h-4 w-24 bg-muted rounded mb-1"></div>
+              <div className="h-4 w-28 bg-muted rounded"></div>
+            </div>
+            <div className="flex space-x-2">
+              <div className="h-8 w-8 bg-muted rounded-md"></div>
+              <div className="h-8 w-8 bg-muted rounded-md"></div>
+            </div>
+          </div>
+        </Card>
+      ))}
+    </div>
   );
 
   return (
@@ -111,102 +217,30 @@ const EmergencyContactsPage: React.FC = () => {
           </Button>
           Emergency Contacts
         </h2>
-        <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-          <DialogTrigger asChild>
-            <Button variant="outline" size="sm">
-              <PlusCircle className="mr-2" size={16} /> Add Contact
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>
-                {editIndex !== null ? "Edit Contact" : "Add Contact"}
-              </DialogTitle>
-              <DialogDescription>
-                Fill in the emergency contact details.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div>
-                <Input
-                  name="name"
-                  placeholder="Name"
-                  value={form.name}
-                  onChange={handleChange}
-                />
-                {formErrors.name && (
-                  <p className="text-xs text-red-500 mt-1">{formErrors.name}</p>
-                )}
-              </div>
-              <div>
-                <Input
-                  name="relation"
-                  placeholder="Relation"
-                  value={form.relation}
-                  onChange={handleChange}
-                />
-                {formErrors.relation && (
-                  <p className="text-xs text-red-500 mt-1">
-                    {formErrors.relation}
-                  </p>
-                )}
-              </div>
-              <div>
-                <Input
-                  name="phone"
-                  placeholder="Phone"
-                  value={form.phone}
-                  onChange={handleChange}
-                />
-                {formErrors.phone && (
-                  <p className="text-xs text-red-500 mt-1">
-                    {formErrors.phone}
-                  </p>
-                )}
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setModalOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleSave}>
-                {editIndex !== null ? "Save Changes" : "Add Contact"}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </div>
-
-      <div className="relative">
-        <Search
-          className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-          size={16}
-        />
-        <Input
-          placeholder="Search contacts..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="pl-10"
-        />
+        <Button variant="outline" size="sm" onClick={() => openModal()}>
+          <PlusCircle className="mr-2" size={16} /> Add Contact
+        </Button>
       </div>
 
       <Card className="flex-1 flex flex-col overflow-hidden bg-transparent">
         <CardHeader>
-          <CardTitle>Contacts ({filteredContacts.length})</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            Contacts
+            {!isLoading && <Badge variant="secondary">{contacts.length}</Badge>}
+          </CardTitle>
         </CardHeader>
         <CardContent className="flex-1 overflow-hidden">
           <ScrollArea className="h-full pr-4">
-            {filteredContacts.length === 0 ? (
+            {isLoading ? (
+              <SkeletonLoader />
+            ) : contacts.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
-                <p>No matching contacts found.</p>
+                <p>No contacts found. Add one to get started.</p>
               </div>
             ) : (
               <div className="space-y-4">
-                {filteredContacts.map((contact, idx) => (
-                  <Card
-                    key={idx}
-                    className="p-4"
-                  >
+                {contacts.map((contact) => (
+                  <Card key={contact.id} className="p-4">
                     <div className="flex justify-between items-center">
                       <div>
                         <p className="font-semibold text-lg">{contact.name}</p>
@@ -221,14 +255,14 @@ const EmergencyContactsPage: React.FC = () => {
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => handleOpen(idx)}
+                          onClick={() => openModal(contact)}
                         >
                           <Pencil size={16} />
                         </Button>
                         <Button
                           variant="destructive"
                           size="icon"
-                          onClick={() => handleDelete(idx)}
+                          onClick={() => openDeleteConfirm(contact)}
                         >
                           <Trash2 size={16} />
                         </Button>
@@ -241,6 +275,96 @@ const EmergencyContactsPage: React.FC = () => {
           </ScrollArea>
         </CardContent>
       </Card>
+
+      {/* Add/Edit Dialog */}
+      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {editContact ? "Edit Contact" : "Add New Contact"}
+            </DialogTitle>
+            <DialogDescription>
+              Fill in the details for the emergency contact.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div>
+              <Input
+                name="name"
+                placeholder="Name"
+                value={form.name}
+                onChange={handleChange}
+              />
+              {formErrors.name && (
+                <p className="text-xs text-red-500 mt-1">{formErrors.name}</p>
+              )}
+            </div>
+            <div>
+              <Input
+                name="relation"
+                placeholder="Relation (e.g., Spouse, Son)"
+                value={form.relation}
+                onChange={handleChange}
+              />
+              {formErrors.relation && (
+                <p className="text-xs text-red-500 mt-1">
+                  {formErrors.relation}
+                </p>
+              )}
+            </div>
+            <div>
+              <Input
+                name="phone"
+                placeholder="Phone Number"
+                value={form.phone}
+                onChange={handleChange}
+              />
+              {formErrors.phone && (
+                <p className="text-xs text-red-500 mt-1">{formErrors.phone}</p>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSave}>
+              {editContact ? "Save Changes" : "Add Contact"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="text-destructive" /> Are you sure?
+            </DialogTitle>
+            <DialogDescription>
+              This action cannot be undone. This will permanently delete the
+              contact
+              <span className="font-semibold text-foreground">
+                {" "}
+                "{contactToDelete?.name}"
+              </span>
+              .
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setConfirmDeleteOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleDelete}>
+              Yes, delete contact
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

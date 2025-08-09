@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { CgDarkMode } from "react-icons/cg";
+import { Toaster } from "@/components/ui/sonner"; // Import the Toaster
 import WelcomePage from "./pages/WelcomePage";
 import Authentication from "./pages/Authentication";
 import OTPPage from "./pages/OTPPage";
@@ -11,6 +12,7 @@ import AppointmentsPage from "./pages/AppointmentsPage";
 import MedicinesPage from "./pages/MedicinesPage";
 import DataVault from "./pages/DataVault";
 import Settings from "./pages/Settings";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 const App: React.FC = () => {
   const [dark, setDark] = useState<boolean>(() => {
@@ -47,21 +49,27 @@ const App: React.FC = () => {
 
         <main className="flex-grow w-full p-4">
           <Routes>
+            {/* Public Routes */}
             <Route path="/" element={<WelcomePage />} />
             <Route path="/authentication" element={<Authentication />} />
             <Route path="/otp" element={<OTPPage />} />
             <Route path="/face-id" element={<FaceIDPage />} />
-            <Route path="/home" element={<HomePage />} />
-            <Route
-              path="/emergency-contacts"
-              element={<EmergencyContactsPage />}
-            />
-            <Route path="/appointments" element={<AppointmentsPage />} />
-            <Route path="/medicines" element={<MedicinesPage />} />
-            <Route path="/data-vault" element={<DataVault />} />
-            <Route path="/settings" element={<Settings />} />
+
+            {/* Protected Routes */}
+            <Route element={<ProtectedRoute />}>
+              <Route path="/home" element={<HomePage />} />
+              <Route
+                path="/emergency-contacts"
+                element={<EmergencyContactsPage />}
+              />
+              <Route path="/appointments" element={<AppointmentsPage />} />
+              <Route path="/medicines" element={<MedicinesPage />} />
+              <Route path="/data-vault" element={<DataVault />} />
+              <Route path="/settings" element={<Settings />} />
+            </Route>
           </Routes>
         </main>
+        <Toaster richColors position="top-right" />
       </div>
     </BrowserRouter>
   );

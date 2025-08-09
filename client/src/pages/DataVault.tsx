@@ -1,195 +1,228 @@
-import React, { useRef, useState } from "react";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import React, { useEffect, useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Trash2,
-  FileText,
-  Eye,
-  Upload,
-  Pencil,
-  Search,
+  PlusCircle,
   ArrowLeft,
+  UploadCloud,
+  FileText,
+  Download,
+  AlertTriangle,
+  Pencil,
 } from "lucide-react";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Input } from "@/components/ui/input";
 import {
   Dialog,
-  DialogTrigger,
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { useNavigate } from "react-router-dom";
-import * as yup from "yup";
+import { useAuth } from "@/context/AuthContext";
+import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
+
+const BASE_URL = "/api/v1"; // Use the proxy
 
 interface Document {
   id: number;
   name: string;
-  type: string;
-  date: string;
-  fileUrl: string;
+  file_url: string;
+  timestamp: string;
 }
 
-const uploadSchema = yup.object().shape({
-  name: yup.string().required("Document name is required"),
-  file: yup.mixed().required("Please select a file"),
-});
-
-const DataVault: React.FC = () => {
+const DataVaultPage: React.FC = () => {
+  const { user } = useAuth();
   const [documents, setDocuments] = useState<Document[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const [modalOpen, setModalOpen] = useState(false);
+  const [uploading, setUploading] = useState(false);
+
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [docToDelete, setDocToDelete] = useState<Document | null>(null);
+
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [uploadFile, setUploadFile] = useState<File | null>(null);
-  const [uploadName, setUploadName] = useState("");
-  const [uploadErrors, setUploadErrors] = useState<{
-    name?: string;
-    file?: string;
-  }>({});
-  const [searchTerm, setSearchTerm] = useState("");
-  const reuploadRefs = useRef<Record<number, HTMLInputElement | null>>({});
+  const [editingName, setEditingName] = useState("");
+
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [documentName, setDocumentName] = useState("");
+  const [error, setError] = useState("");
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
-  
 
+  // READ: Fetch documents when the component mounts
+  useEffect(() => {
+    if (user) {
+      setIsLoading(true);
+      fetch(`${BASE_URL}/documents/user/${user.id}`)
+        .then((res) => {
+          if (!res.ok) throw new Error("Failed to fetch documents");
+          return res.json();
+        })
+        .then((data: Document[]) => setDocuments(data))
+        .catch((err) => {
+          console.error("Fetch documents error:", err);
+          toast.error("Could not load your documents.");
+        })
+        .finally(() => setIsLoading(false));
+    }
+  }, [user]);
 
-  const handleDelete = (id: number) => {
-    setDocuments((prev) => prev.filter((doc) => doc.id !== id));
-  };
-
-  const handleReupload = (
-    e: React.ChangeEvent<HTMLInputElement>,
-    id: number
-  ) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const fileUrl = URL.createObjectURL(file);
-    setDocuments((prev) =>
-      prev.map((doc) =>
-        doc.id === id
-          ? { ...doc, name: file.name, type: file.type, fileUrl }
-          : doc
-      )
-    );
-    e.target.value = "";
-  };
-
-  const handleRename = (id: number, newName: string) => {
-    setDocuments((prev) =>
-      prev.map((doc) => (doc.id === id ? { ...doc, name: newName } : doc))
-    );
-    setEditingId(null);
-  };
-
-  const handleAddDocument = async () => {
-    try {
-      await uploadSchema.validate(
-        { name: uploadName, file: uploadFile },
-        { abortEarly: false }
-      );
-      if (!uploadFile) return;
-      const newDoc: Document = {
-        id: Date.now(),
-        name: uploadName,
-        type: uploadFile.type || "Unknown",
-        date: new Date().toLocaleDateString(),
-        fileUrl: URL.createObjectURL(uploadFile),
-      };
-      setDocuments((prev) => [...prev, newDoc]);
-      setUploadFile(null);
-      setUploadName("");
-      setDialogOpen(false);
-      setUploadErrors({});
-    } catch (err: any) {
-      if (err.inner) {
-        const fieldErrors: { name?: string; file?: string } = {};
-        err.inner.forEach((e: any) => {
-          if (e.path) fieldErrors[e.path as "name" | "file"] = e.message;
-        });
-        setUploadErrors(fieldErrors);
-      }
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setSelectedFile(e.target.files[0]);
+      setDocumentName(e.target.files[0].name.replace(/\.[^/.]+$/, ""));
+      setError("");
     }
   };
 
-  const filteredDocuments = documents.filter(
-    (doc) =>
-      doc.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      doc.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      doc.date.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const handleUpload = async () => {
+    if (!user || !selectedFile || !documentName) {
+      setError("Please select a file and provide a name.");
+      return;
+    }
 
-  const renderDocumentList = (docs: Document[]) => (
-    <div className="space-y-4">
-      {docs.length === 0 ? (
-        <div className="text-center py-8 text-muted-foreground">
-          <p>No documents found.</p>
-        </div>
-      ) : (
-        docs.map((doc) => (
-          <Card key={doc.id} className="p-4">
-            <div className="flex justify-between items-start">
-              <div className="flex items-center space-x-3">
-                <FileText className="h-6 w-6 text-primary" />
-                <div>
-                  {editingId === doc.id ? (
-                    <Input
-                      defaultValue={doc.name}
-                      onBlur={(e) => handleRename(doc.id, e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter")
-                          handleRename(
-                            doc.id,
-                            (e.target as HTMLInputElement).value
-                          );
-                      }}
-                      autoFocus
-                      className="text-base w-48"
-                    />
-                  ) : (
-                    <p className="font-semibold text-lg">{doc.name}</p>
-                  )}
-                  <p className="text-sm text-muted-foreground">{doc.type}</p>
-                  <p className="text-xs text-muted-foreground">{doc.date}</p>
-                </div>
-              </div>
-              <div className="flex space-x-2">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => window.open(doc.fileUrl, "_blank")}
-                >
-                  <Eye size={16} />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setEditingId(doc.id)}
-                >
-                  <Pencil size={16} />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => reuploadRefs.current[doc.id]?.click()}
-                >
-                  <Upload size={16} />
-                </Button>
-                <input
-                  type="file"
-                  onChange={(e) => handleReupload(e, doc.id)}
-                  className="hidden"
-                />
-                <Button
-                  variant="destructive"
-                  size="icon"
-                  onClick={() => handleDelete(doc.id)}
-                >
-                  <Trash2 size={16} />
-                </Button>
+    setUploading(true);
+    setError("");
+
+    try {
+      const formData = new FormData();
+      formData.append("file", selectedFile);
+
+      const uploadRes = await fetch(`${BASE_URL}/documents/upload`, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!uploadRes.ok) {
+        const errDetail = await uploadRes.json();
+        throw new Error(errDetail.detail || "File upload failed");
+      }
+
+      const uploadResult = await uploadRes.json();
+      const { file_url } = uploadResult;
+
+      const createPayload = {
+        user_id: user.id,
+        name: documentName,
+        file_url: file_url,
+      };
+
+      const createRes = await fetch(`${BASE_URL}/documents/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(createPayload),
+      });
+
+      if (!createRes.ok) {
+        const errDetail = await createRes.json();
+        throw new Error(errDetail.detail || "Failed to create document record");
+      }
+
+      const newDocument = await createRes.json();
+      setDocuments((prev) => [newDocument, ...prev]);
+      setModalOpen(false);
+      setSelectedFile(null);
+      setDocumentName("");
+      toast.success("Document uploaded successfully!");
+    } catch (err: any) {
+      console.error("Upload process error:", err);
+      setError(err.message || "An unexpected error occurred.");
+      toast.error("Upload failed", { description: err.message });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleRename = async (docId: number) => {
+    const originalDoc = documents.find((d) => d.id === docId);
+    if (!editingName || !originalDoc || editingName === originalDoc.name) {
+      setEditingId(null);
+      return;
+    }
+
+    try {
+      const res = await fetch(`${BASE_URL}/documents/${docId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: editingName }),
+      });
+
+      if (!res.ok) {
+        const errDetail = await res.json();
+        throw new Error(errDetail.detail || "Failed to rename document");
+      }
+
+      const updatedDoc = await res.json();
+      setDocuments((prev) =>
+        prev.map((d) => (d.id === docId ? updatedDoc : d))
+      );
+      toast.info(`Renamed to "${updatedDoc.name}"`);
+    } catch (err: any) {
+      toast.error("Rename failed", { description: err.message });
+      // Revert the name in UI if API call fails
+      setDocuments((prev) => [...prev]);
+    } finally {
+      setEditingId(null);
+    }
+  };
+
+  const startEditing = (doc: Document) => {
+    setEditingId(doc.id);
+    setEditingName(doc.name);
+  };
+
+  const openDeleteConfirm = (doc: Document) => {
+    setDocToDelete(doc);
+    setConfirmDeleteOpen(true);
+  };
+
+  const handleDelete = async () => {
+    if (!user || !docToDelete) return;
+    try {
+      const res = await fetch(`${BASE_URL}/documents/${docToDelete.id}`, {
+        method: "DELETE",
+      });
+
+      if (!res.ok) {
+        const errDetail = await res.json();
+        throw new Error(errDetail.detail || "Failed to delete document");
+      }
+      setDocuments((prev) => prev.filter((doc) => doc.id !== docToDelete.id));
+      toast.success(`"${docToDelete.name}" was deleted.`);
+      setConfirmDeleteOpen(false);
+      setDocToDelete(null);
+    } catch (err: any) {
+      console.error("Delete error:", err);
+      toast.error("Deletion failed", { description: err.message });
+    }
+  };
+
+  const SkeletonLoader = () => (
+    <div className="space-y-4 pt-4">
+      {[...Array(3)].map((_, i) => (
+        <Card key={i} className="p-4 animate-pulse">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-4">
+              <div className="h-10 w-10 bg-muted rounded-md"></div>
+              <div>
+                <div className="h-6 w-40 bg-muted rounded mb-2"></div>
+                <div className="h-4 w-24 bg-muted rounded"></div>
               </div>
             </div>
-          </Card>
-        ))
-      )}
+            <div className="flex space-x-2">
+              <div className="h-8 w-8 bg-muted rounded-md"></div>
+              <div className="h-8 w-8 bg-muted rounded-md"></div>
+            </div>
+          </div>
+        </Card>
+      ))}
     </div>
   );
 
@@ -207,82 +240,182 @@ const DataVault: React.FC = () => {
           </Button>
           Data Vault
         </h2>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button variant="outline" size="sm">
-              <Upload className="mr-2 h-4 w-4" /> Add Document
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Add New Document</DialogTitle>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div>
-                <Input
-                  placeholder="Document Name"
-                  value={uploadName}
-                  onChange={(e) => {
-                    setUploadName(e.target.value);
-                    setUploadErrors((prev) => ({ ...prev, name: "" }));
-                  }}
-                />
-                {uploadErrors.name && (
-                  <p className="text-red-500 text-xs mt-1">
-                    {uploadErrors.name}
-                  </p>
-                )}
-              </div>
-              <div>
-                <Input
-                  type="file"
-                  onChange={(e) => {
-                    setUploadFile(e.target.files?.[0] || null);
-                    setUploadErrors((prev) => ({ ...prev, file: "" }));
-                  }}
-                />
-                {uploadErrors.file && (
-                  <p className="text-red-500 text-xs mt-1">
-                    {uploadErrors.file}
-                  </p>
-                )}
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleAddDocument}>Upload</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <Button variant="outline" size="sm" onClick={() => setModalOpen(true)}>
+          <PlusCircle className="mr-2" size={16} /> Upload Document
+        </Button>
       </div>
 
-      <div className="relative">
-        <Search
-          className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground"
-          size={16}
-        />
-        <Input
-          placeholder="Search documents..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="pl-10"
-        />
-      </div>
-
-      <Card className="flex-1 bg-transparent">
+      <Card className="flex-1 flex flex-col overflow-hidden bg-transparent">
         <CardHeader>
-          <CardTitle>Documents ({filteredDocuments.length})</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            Your Documents
+            {!isLoading && (
+              <Badge variant="secondary">{documents.length}</Badge>
+            )}
+          </CardTitle>
         </CardHeader>
         <CardContent className="flex-1 overflow-hidden">
           <ScrollArea className="h-full pr-4">
-            {renderDocumentList(filteredDocuments)}
+            {isLoading ? (
+              <SkeletonLoader />
+            ) : documents.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <p>No documents found. Upload one to get started.</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {documents.map((doc) => (
+                  <Card key={doc.id} className="p-4">
+                    <div className="flex justify-between items-center">
+                      <div className="flex items-center gap-4">
+                        <FileText className="w-8 h-8 text-primary" />
+                        <div>
+                          {editingId === doc.id ? (
+                            <Input
+                              value={editingName}
+                              onChange={(e) => setEditingName(e.target.value)}
+                              onBlur={() => handleRename(doc.id)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") handleRename(doc.id);
+                                if (e.key === "Escape") setEditingId(null);
+                              }}
+                              autoFocus
+                              className="text-lg"
+                            />
+                          ) : (
+                            <p className="font-semibold text-lg">{doc.name}</p>
+                          )}
+                          <p className="text-sm text-muted-foreground">
+                            Uploaded on:{" "}
+                            {new Date(doc.timestamp).toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex space-x-2">
+                        <a
+                          href={doc.file_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            aria-label="Download document"
+                          >
+                            <Download size={16} />
+                          </Button>
+                        </a>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          aria-label="Rename document"
+                          onClick={() => startEditing(doc)}
+                        >
+                          <Pencil size={16} />
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          size="icon"
+                          aria-label="Delete document"
+                          onClick={() => openDeleteConfirm(doc)}
+                        >
+                          <Trash2 size={16} />
+                        </Button>
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            )}
           </ScrollArea>
         </CardContent>
       </Card>
+
+      {/* Upload Dialog */}
+      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Upload a New Document</DialogTitle>
+            <DialogDescription>
+              Select a file from your device and give it a name.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <Button
+              variant="outline"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <UploadCloud className="mr-2 h-4 w-4" />
+              {selectedFile ? "Change File" : "Select File"}
+            </Button>
+            <Input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileSelect}
+              className="hidden"
+            />
+            {selectedFile && (
+              <p className="text-sm text-muted-foreground">
+                Selected: {selectedFile.name}
+              </p>
+            )}
+
+            <Input
+              placeholder="Document Name (e.g., Blood Report)"
+              value={documentName}
+              onChange={(e) => setDocumentName(e.target.value)}
+              disabled={!selectedFile}
+            />
+            {error && (
+              <p className="text-sm text-red-500 text-center">{error}</p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleUpload}
+              disabled={uploading || !selectedFile || !documentName}
+            >
+              {uploading ? "Uploading..." : "Upload and Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="text-destructive" /> Are you sure?
+            </DialogTitle>
+            <DialogDescription>
+              This action cannot be undone. This will permanently delete the
+              document
+              <span className="font-semibold text-foreground">
+                {" "}
+                "{docToDelete?.name}"
+              </span>
+              .
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setConfirmDeleteOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleDelete}>
+              Yes, delete document
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
 
-export default DataVault;
+export default DataVaultPage;

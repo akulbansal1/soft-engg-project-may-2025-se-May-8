@@ -1,231 +1,197 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  Eye,
-  EyeOff,
-  User,
-  Calendar,
-  Phone,
-  Mail,
-  MapPin,
-  Heart,
-  ArrowLeft,
-  Edit2,
-  X,
-} from "lucide-react";
+import { User, Calendar, Phone, ArrowLeft, AlertCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/context/AuthContext";
+import { toast } from "sonner";
+
+// Define the structure of the user data we expect from the API
+interface UserProfile {
+  id: number;
+  name: string;
+  phone: string;
+  dob: string;
+  gender: string;
+}
 
 const Settings: React.FC = () => {
-  const [showInfo, setShowInfo] = useState({
-    phone: false,
-    email: false,
-    address: false,
-  });
-
-  const [editMode, setEditMode] = useState({
-    personal: false,
-    contact: false,
-    medical: false,
-  });
-
-  const [userInfo, setUserInfo] = useState({
-    name: "John Doe",
-    age: "32",
-    phone: "+1 (555) 123-4567",
-    email: "john.doe@email.com",
-    address: "123 Main St, City, State 12345",
-    emergencyContact: "Jane Doe - +1 (555) 987-6543",
-    bloodType: "O+",
-    allergies: "None",
-    conditions: "Hypertension",
-  });
-
-  const toggleVisibility = (field: keyof typeof showInfo) => {
-    setShowInfo((prev) => ({ ...prev, [field]: !prev[field] }));
-  };
-
-  const toggleEditMode = (section: keyof typeof editMode) => {
-    setEditMode((prev) => ({ ...prev, [section]: !prev[section] }));
-  };
-
-  const handleSave = (section: keyof typeof editMode) => {
-    setEditMode((prev) => ({ ...prev, [section]: false }));
-    // Save changes to backend here
-  };
-
-  // Better utilize space
-  // Text consistency
-
-  const SimpleField = ({
-    label,
-    value,
-    icon: Icon,
-  }: {
-    label: string;
-    value: string;
-    icon: React.ElementType;
-  }) => (
-    <div className="flex items-center justify-between p-3 rounded-lg bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700">
-      <div className="flex items-center space-x-3">
-        <Icon size={20} className="text-zinc-600 dark:text-zinc-400" />
-        <div>
-          <p className="font-medium text-sm text-zinc-900 dark:text-zinc-100">
-            {label}
-          </p>
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">{value}</p>
-        </div>
-      </div>
-    </div>
-  );
-
-  const PrivacyField = ({
-    label,
-    field,
-    value,
-    icon: Icon,
-  }: {
-    label: string;
-    field: keyof typeof showInfo;
-    value: string;
-    icon: React.ElementType;
-  }) => (
-    <div className="flex items-center justify-between p-3 rounded-lg bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700">
-      <div className="flex items-center space-x-3">
-        <Icon size={20} className="text-zinc-600 dark:text-zinc-400" />
-        <div>
-          <p className="font-medium text-sm text-zinc-900 dark:text-zinc-100">
-            {label}
-          </p>
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">
-            {showInfo[field] ? value : "••••••••"}
-          </p>
-        </div>
-      </div>
-      <button
-        onClick={() => toggleVisibility(field)}
-        className="p-2 rounded-full hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
-      >
-        {showInfo[field] ? (
-          <EyeOff size={18} className="text-zinc-600 dark:text-zinc-400" />
-        ) : (
-          <Eye size={18} className="text-zinc-600 dark:text-zinc-400" />
-        )}
-      </button>
-    </div>
-  );
-
+  const { user } = useAuth();
+  const [userInfo, setUserInfo] = useState<UserProfile | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
 
+  useEffect(() => {
+    if (user) {
+      setIsLoading(true);
+      fetch(`/api/v1/users/${user.id}`)
+        .then((res) => {
+          if (!res.ok) {
+            throw new Error("Failed to fetch user profile");
+          }
+          return res.json();
+        })
+        .then((data: UserProfile) => {
+          setUserInfo(data);
+        })
+        .catch((err) => {
+          console.error("Error fetching user profile:", err);
+          toast.error("Could not load your profile information.");
+        })
+        .finally(() => {
+          setIsLoading(false);
+        });
+    }
+  }, [user]);
+
+  const calculateAge = (dob: string) => {
+    if (!dob) return "";
+    const birthDate = new Date(dob);
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const m = today.getMonth() - birthDate.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    return age.toString();
+  };
+
+  const getInitials = (name: string) => {
+    if (!name) return "?";
+    const names = name.split(" ");
+    const firstName = names[0]?.[0] || "";
+    const lastName = names.length > 1 ? names[names.length - 1]?.[0] : "";
+    return `${firstName}${lastName}`.toUpperCase();
+  };
+
+  const InfoField = ({
+    label,
+    value,
+    icon: Icon,
+  }: {
+    label: string;
+    value: string;
+    icon: React.ElementType;
+  }) => (
+    <div className="flex items-center space-x-4 p-4 rounded-lg bg-secondary/50 border">
+      <Icon size={20} className="text-primary flex-shrink-0" />
+      <div>
+        <p className="text-sm text-foreground/80">{label}</p>
+        <p className="font-semibold text-foreground text-base">
+          {value || "Not set"}
+        </p>
+      </div>
+    </div>
+  );
+
+  const SkeletonLoader = () => (
+    <div className="space-y-6">
+      {[...Array(2)].map((_, cardIndex) => (
+        <Card key={cardIndex} className="animate-pulse">
+          <CardHeader className="pb-3">
+            <div className="h-6 w-48 bg-muted rounded"></div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {[...Array(2)].map((_, fieldIndex) => (
+              <div
+                key={fieldIndex}
+                className="flex items-center space-x-4 p-4 rounded-lg bg-background border"
+              >
+                <div className="h-5 w-5 bg-muted rounded-full"></div>
+                <div>
+                  <div className="h-4 w-20 bg-muted rounded mb-2"></div>
+                  <div className="h-5 w-32 bg-muted rounded"></div>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+
   return (
-    <div className="min-h-screen p-4">
-      <div className="max-w-2xl mx-auto space-y-6">
+    <div>
+      <div className="mx-auto space-y-8">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <Button variant="ghost" size="sm" className="p-2" onClick={() => navigate('/home')}>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="rounded-md"
+              onClick={() => navigate("/home")}
+            >
               <ArrowLeft size={20} />
             </Button>
             <div>
-              <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
-                Settings
-              </h1>
-              <p className="text-sm text-zinc-600 dark:text-zinc-400">
+              <h1 className="text-2xl font-bold text-foreground">Settings</h1>
+              <p className="text-sm text-foreground/70">
                 Manage your profile and privacy
               </p>
             </div>
           </div>
-          <div className="w-12 h-12 rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 flex items-center justify-center">
-            <User size={24} className="text-white" />
+          <div className="w-12 h-12 rounded-full bg-gradient-to-r from-primary to-primary/80 flex items-center justify-center font-bold text-lg text-primary-foreground">
+            {userInfo ? getInitials(userInfo.name) : <User size={24} />}
           </div>
         </div>
 
-        {/* Personal Information Card */}
-        <Card className="border border-zinc-200 dark:border-zinc-700 shadow-lg">
-          <CardHeader className="pb-3 flex items-center justify-between">
-            <CardTitle className="flex items-center space-x-2">
-              <User size={20} className="text-blue-600" />
-              <span>Personal Information</span>
-            </CardTitle>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => toggleEditMode("personal")}
-              className="text-blue-600 hover:text-blue-700"
-            >
-              {editMode.personal ? <X size={16} /> : <Edit2 size={16} />}
-            </Button>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <SimpleField label="Full Name" value={userInfo.name} icon={User} />
-            <SimpleField label="Age" value={userInfo.age} icon={Calendar} />
-          </CardContent>
-        </Card>
+        {isLoading ? (
+          <SkeletonLoader />
+        ) : !userInfo ? (
+          <Card>
+            <CardContent className="pt-6 text-center">
+              <AlertCircle className="mx-auto h-12 w-12 text-destructive" />
+              <h3 className="mt-4 text-lg font-medium">
+                Could not load profile
+              </h3>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Please try refreshing the page.
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          <>
+            {/* Personal Information Card */}
+            <Card className="bg-transparent">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center space-x-3">
+                  <User size={20} className="text-foreground/80" />
+                  <span>Personal Information</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <InfoField
+                  label="Full Name"
+                  value={userInfo.name}
+                  icon={User}
+                />
+                <InfoField
+                  label="Age"
+                  value={calculateAge(userInfo.dob)}
+                  icon={Calendar}
+                />
+              </CardContent>
+            </Card>
 
-        {/* Contact Information Card */}
-        <Card className="border border-zinc-200 dark:border-zinc-700 shadow-lg">
-          <CardHeader className="pb-3 flex items-center justify-between">
-            <CardTitle className="flex items-center space-x-2">
-              <Phone size={20} className="text-green-600" />
-              <span>Contact Information</span>
-            </CardTitle>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => toggleEditMode("contact")}
-              className="text-green-600 hover:text-green-700"
-            >
-              {editMode.contact ? <X size={16} /> : <Edit2 size={16} />}
-            </Button>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <PrivacyField
-              label="Phone Number"
-              field="phone"
-              value={userInfo.phone}
-              icon={Phone}
-            />
-          </CardContent>
-        </Card>
-
-        {/* Emergency Contact Card */}
-        <Card className="border border-zinc-200 dark:border-zinc-700 shadow-lg">
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center space-x-2">
-              <Heart size={20} className="text-red-600" />
-              <span>Emergency Contact</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <SimpleField
-              label="Emergency Contact"
-              value={userInfo.emergencyContact}
-              icon={Phone}
-            />
-          </CardContent>
-        </Card>
-
-        {/* Medical Information Card */}
-
-        {/* Privacy Notice */}
-        <Card className="border border-zinc-200 dark:border-zinc-700 shadow-lg">
-          <CardContent className="pt-6">
-            <div className="flex items-start space-x-3">
-              <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center flex-shrink-0">
-                <Eye size={16} className="text-Blue-600" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-zinc-900 dark:text-zinc-100 mb-1">
-                  Privacy Protection
-                </h3>
-                <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                  Your sensitive information is hidden by default. Use the eye
-                  icons to temporarily view your data.
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            {/* Contact Information Card */}
+            <Card className="bg-transparent">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center space-x-3">
+                  <Phone size={20} className="text-foreground/80" />
+                  <span>Contact Information</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <InfoField
+                  label="Phone Number"
+                  value={userInfo.phone}
+                  icon={Phone}
+                />
+              </CardContent>
+            </Card>
+          </>
+        )}
       </div>
     </div>
   );
